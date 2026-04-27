@@ -23,7 +23,21 @@ function createWindow() {
   }
 }
 
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  createWindow()
+
+  // Placeholder IPC handlers — replaced with real implementations in Task 3
+  ipcMain.handle('songs:getAll',    () => [])
+  ipcMain.handle('setlists:getAll', () => [])
+  ipcMain.handle('settings:get',    () => ({}))
+  ipcMain.handle('settings:save',   () => {})
+  ipcMain.on('command',             () => {})
+})
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
+})
+
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) createWindow()
 })

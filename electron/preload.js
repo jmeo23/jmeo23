@@ -6,8 +6,16 @@ contextBridge.exposeInMainWorld('phr0st', {
   getSettings:  () => ipcRenderer.invoke('settings:get'),
   saveSettings: (s) => ipcRenderer.invoke('settings:save', s),
 
-  onSongsUpdated: (cb) => ipcRenderer.on('songs:updated', (_, d) => cb(d)),
-  onStateUpdate:  (cb) => ipcRenderer.on('state:update',  (_, d) => cb(d)),
+  onSongsUpdated: (cb) => {
+    const handler = (_, d) => cb(d)
+    ipcRenderer.on('songs:updated', handler)
+    return () => ipcRenderer.removeListener('songs:updated', handler)
+  },
+  onStateUpdate: (cb) => {
+    const handler = (_, d) => cb(d)
+    ipcRenderer.on('state:update', handler)
+    return () => ipcRenderer.removeListener('state:update', handler)
+  },
 
   sendCommand: (cmd, payload) => ipcRenderer.send('command', { cmd, payload }),
 })
