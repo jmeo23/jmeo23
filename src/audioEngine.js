@@ -13,6 +13,7 @@ export class AudioEngine {
     this.timerId        = null
     this.running        = false
     this.muted          = false
+    this.beatTimers     = []
   }
 
   get beatInterval() { return 60 / this.bpm }
@@ -29,6 +30,8 @@ export class AudioEngine {
   stop() {
     this.running = false
     clearTimeout(this.timerId)
+    this.beatTimers.forEach(clearTimeout)
+    this.beatTimers = []
     if (this.ctx) { this.ctx.close(); this.ctx = null }
   }
 
@@ -47,7 +50,8 @@ export class AudioEngine {
 
   _scheduleBeat(beatIdx, time) {
     const delayMs = Math.max(0, (time - this.ctx.currentTime) * 1000 - 5)
-    setTimeout(() => this.onBeat(beatIdx), delayMs)
+    const t = setTimeout(() => this.onBeat(beatIdx), delayMs)
+    this.beatTimers.push(t)
     if (this.muted) return
     const buffer = beatIdx === 0 ? this.downbeatBuffer : this.upbeatBuffer
     buffer ? this._playBuffer(buffer, time) : this._playTone(beatIdx === 0 ? 1200 : 900, time)

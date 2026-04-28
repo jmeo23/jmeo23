@@ -116,6 +116,7 @@ export function createStateMachine(song) {
     get activeSection()  { return activeSection },
     get currentBar()     { return currentBar },
     get isLooping()      { return isLooping },
+    get pendingSection() { return pendingSection },
     on, startSong, stop, cancel, toggleLoop, jumpToSection, onBeat,
   }
 }

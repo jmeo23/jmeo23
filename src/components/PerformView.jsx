@@ -17,6 +17,7 @@ export function PerformView({ song }) {
   const [countInDisplay, setCountInDisplay] = useState(null)
   const [dotsFilled,     setDotsFilled]     = useState(0)
   const [isLooping,      setIsLooping]      = useState(false)
+  const [pendingSection, setPendingSection] = useState(-1)
   const [currentScene,   setCurrentScene]   = useState(null)
   const [sceneName,      setSceneName]      = useState('')
 
@@ -39,6 +40,7 @@ export function PerformView({ song }) {
       dotsRef.current = 0
       setDotsFilled(0)
       setCountInDisplay(null)
+      setPendingSection(to)
       setOverlay({
         mode,
         from: from >= 0 ? song.sections[from]?.name : '',
@@ -48,6 +50,7 @@ export function PerformView({ song }) {
     sm.on('overlayHide',      ()            => setOverlay({ mode: 'hidden' }))
     sm.on('countInBeat',      (n)           => { dotsRef.current++; setDotsFilled(dotsRef.current); setCountInDisplay(n) })
     sm.on('sectionActivated', ({ index, section }) => {
+      setPendingSection(-1)
       setActiveSection(index)
       setCurrentBar(1)
       setTotalBars(section.bars)
@@ -59,7 +62,7 @@ export function PerformView({ song }) {
     })
     sm.on('barAdvanced',  ({ bar, totalBars: t }) => { setCurrentBar(bar); setTotalBars(t) })
     sm.on('loopChanged',  ({ isLooping: l })      => setIsLooping(l))
-    sm.on('songEnded',    ()                      => { setSmState('idle'); setActiveSection(-1); setCurrentScene(null) })
+    sm.on('songEnded',    ()                      => { setSmState('idle'); setActiveSection(-1); setCurrentScene(null); setPendingSection(-1) })
 
     // forward count-in beat events to main for DMX
     sm.on('countInBeat', () => window.phr0st?.sendCommand('countIn:beat', {}))
@@ -87,6 +90,7 @@ export function PerformView({ song }) {
     setOverlay({ mode: 'hidden' })
     setBeatIndex(-1)
     setCurrentScene(null)
+    setPendingSection(-1)
     window.phr0st?.sendCommand('countIn:stop', {})
   }
 
@@ -96,14 +100,16 @@ export function PerformView({ song }) {
     setSmState('idle')
     setActiveSection(-1)
     setOverlay({ mode: 'hidden' })
+    setPendingSection(-1)
     window.phr0st?.sendCommand('countIn:stop', {})
   }
 
   function getSectionStatus(idx) {
     if (smState === 'idle' || activeSection === -1) return 'idle'
     if (idx === activeSection && isLooping) return 'looping'
-    if (idx === activeSection) return 'active'
-    if (idx < activeSection)  return 'done'
+    if (idx === activeSection)              return 'active'
+    if (idx === pendingSection)             return 'pending'
+    if (idx < activeSection)               return 'done'
     return 'idle'
   }
 
