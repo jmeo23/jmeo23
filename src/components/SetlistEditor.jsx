@@ -16,13 +16,14 @@ function newGig() {
   }
 }
 
-function estMins(songIds) {
-  return Math.round(songIds.length * 3.5)
+function estSetMins(items) {
+  return Math.round(items.reduce((sum, item) => sum + (item?.type === 'break' ? (item.durationMins ?? 3) : 3.5), 0))
 }
 
 function durColor(mins) {
-  if (mins > 60)  return '#f87171' // red — WCAG AA on dark bg (5.7:1)
-  if (mins >= 30) return '#fbbf24' // amber — WCAG AA on dark bg (8.8:1)
+  if (mins >= 50) return '#f87171'
+  if (mins >= 40) return '#fbbf24'
+  if (mins >= 30) return '#22c55e'
   return '#888'
 }
 
@@ -44,7 +45,7 @@ function Btn({ children, color = '#a855f7', disabled, onClick, style = {} }) {
   )
 }
 
-export function SetlistEditor({ songs = [], onLoadGig, onDirtyChange }) {
+export function SetlistEditor({ songs = [], breaks = [], onLoadGig, onDirtyChange }) {
   const [gigs, setGigs] = useState(() => {
     try { return JSON.parse(localStorage.getItem('phr0st-gigs') || '[]') } catch { return [] }
   })
@@ -54,21 +55,25 @@ export function SetlistEditor({ songs = [], onLoadGig, onDirtyChange }) {
       return saved[0]?.id ?? null
     } catch { return null }
   })
-  const [query, setQuery]           = useState('')
-  const [sortBy, setSortBy]         = useState('az')
-  const [dropTarget, setDropTarget] = useState(null)
-  const [loadedSet, setLoadedSet]   = useState(null)
-  const [saveFlash,     setSaveFlash]     = useState(false)
+  const [query, setQuery]               = useState('')
+  const [sortBy, setSortBy]             = useState('az')
+  const [dropTarget, setDropTarget]     = useState(null)
+  const [loadedSet, setLoadedSet]       = useState(null)
+  const [saveFlash, setSaveFlash]         = useState(false)
   const [collapsedSets, setCollapsedSets] = useState(new Set())
-  const dragRef   = useRef(null)
-  const savedRef  = useRef(localStorage.getItem('phr0st-gigs') || '[]')
-  const isDirty   = JSON.stringify(gigs) !== savedRef.current
+  const [breaksCollapsed, setBreaksCollapsed] = useState(false)
+  const [songsCollapsed,  setSongsCollapsed]  = useState(false)
+  const dragRef  = useRef(null)
+  const savedRef = useRef(localStorage.getItem('phr0st-gigs') || '[]')
+  const isDirty  = JSON.stringify(gigs) !== savedRef.current
 
   const activeGig = gigs.find(g => g.id === activeGigId) ?? null
 
-  useEffect(() => {
-    onDirtyChange?.(isDirty)
-  }, [isDirty])
+  function findItem(id) {
+    return songs.find(s => s.id === id) ?? breaks.find(b => b.id === id) ?? null
+  }
+
+  useEffect(() => { onDirtyChange?.(isDirty) }, [isDirty])
 
   function save() {
     const json = JSON.stringify(gigs)
@@ -118,17 +123,17 @@ export function SetlistEditor({ songs = [], onLoadGig, onDirtyChange }) {
     }))
   }
 
-  function removeSongFromSet(setIdx, songIdx) {
+  function removeItemFromSet(setIdx, itemIdx) {
     updateGig(g => ({
       ...g,
       sets: g.sets.map((s, i) => i === setIdx
-        ? { ...s, songs: s.songs.filter((_, j) => j !== songIdx) }
+        ? { ...s, songs: s.songs.filter((_, j) => j !== itemIdx) }
         : s
       ),
     }))
   }
 
-  function handleDrop(e, setIdx, atSongIdx) {
+  function handleDrop(e, setIdx, atItemIdx) {
     e.preventDefault()
     e.stopPropagation()
     setDropTarget(null)
@@ -139,17 +144,17 @@ export function SetlistEditor({ songs = [], onLoadGig, onDirtyChange }) {
     if (drag.type === 'library') {
       updateGig(g => {
         const sets = g.sets.map(s => ({ ...s, songs: [...s.songs] }))
-        if (sets[setIdx].songs.includes(drag.songId)) return g
-        const at = atSongIdx ?? sets[setIdx].songs.length
-        sets[setIdx].songs.splice(at, 0, drag.songId)
+        if (drag.itemType !== 'break' && sets[setIdx].songs.includes(drag.itemId)) return g
+        const at = atItemIdx ?? sets[setIdx].songs.length
+        sets[setIdx].songs.splice(at, 0, drag.itemId)
         return { ...g, sets }
       })
     } else if (drag.type === 'set') {
       updateGig(g => {
         const sets = g.sets.map(s => ({ ...s, songs: [...s.songs] }))
-        const [removed] = sets[drag.setIdx].songs.splice(drag.songIdx, 1)
-        let at = atSongIdx ?? sets[setIdx].songs.length
-        if (drag.setIdx === setIdx && atSongIdx !== undefined && atSongIdx > drag.songIdx) at--
+        const [removed] = sets[drag.setIdx].songs.splice(drag.itemIdx, 1)
+        let at = atItemIdx ?? sets[setIdx].songs.length
+        if (drag.setIdx === setIdx && atItemIdx !== undefined && atItemIdx > drag.itemIdx) at--
         sets[setIdx].songs.splice(Math.max(0, at), 0, removed)
         return { ...g, sets }
       })
@@ -166,11 +171,11 @@ export function SetlistEditor({ songs = [], onLoadGig, onDirtyChange }) {
       if (sortBy === 'az')     return a.title.localeCompare(b.title)
       if (sortBy === 'za')     return b.title.localeCompare(a.title)
       if (sortBy === 'artist') return (a.artist ?? '').localeCompare(b.artist ?? '') || a.title.localeCompare(b.title)
-      if (sortBy === 'key')    return (a.key ?? '').localeCompare(b.key ?? '') || a.title.localeCompare(b.title)
+      if (sortBy === 'bpm')    return (a.bpm ?? 0) - (b.bpm ?? 0) || a.title.localeCompare(b.title)
       return 0
     })
 
-  const gigSongSet = new Set(activeGig?.sets.flatMap(s => s.songs) ?? [])
+  const gigItemSet = new Set(activeGig?.sets.flatMap(s => s.songs) ?? [])
 
   const LABEL = {
     fontFamily: VCR, fontSize: '0.55rem', color: '#a78bfa',
@@ -220,11 +225,7 @@ export function SetlistEditor({ songs = [], onLoadGig, onDirtyChange }) {
               style={{ fontFamily: VCR, fontSize: '0.65rem', background: '#131328', border: '1px solid #2a2a3a', color: '#888', borderRadius: 6, padding: '4px 8px', colorScheme: 'dark' }}
             />
 
-            <Btn
-              color="#a855f7"
-              disabled={activeGig.sets.length >= 4}
-              onClick={addSet}
-            >+ Add Set</Btn>
+            <Btn color="#a855f7" disabled={activeGig.sets.length >= 4} onClick={addSet}>+ Add Set</Btn>
 
             <Btn
               color="#a855f7"
@@ -262,35 +263,71 @@ export function SetlistEditor({ songs = [], onLoadGig, onDirtyChange }) {
           {/* ── Library panel ── */}
           <div style={{ width: 210, borderRight: '1px solid #1a1a2e', display: 'flex', flexDirection: 'column', background: '#0b0b18', flexShrink: 0 }}>
             <div style={{ padding: '8px 10px', borderBottom: '1px solid #12121f' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                <div style={LABEL}>Library</div>
-                <select
-                  value={sortBy}
-                  onChange={e => setSortBy(e.target.value)}
-                  style={{ fontFamily: VCR, fontSize: '0.5rem', background: '#131328', border: '1px solid #2a2a3a', color: '#a78bfa', borderRadius: 4, padding: '2px 4px', cursor: 'pointer' }}
-                >
-                  <option value="az">A → Z</option>
-                  <option value="za">Z → A</option>
-                  <option value="artist">Artist</option>
-                  <option value="key">Key</option>
-                </select>
-              </div>
+              <div style={{ marginBottom: 6 }}><span style={LABEL}>Library</span></div>
               <input
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                placeholder="Search…"
+                placeholder="Search songs…"
                 style={{ width: '100%', padding: '5px 8px', background: '#131328', border: '1px solid #2a2a3a', borderRadius: 6, color: '#e0e0f0', fontSize: '0.72rem', outline: 'none' }}
               />
             </div>
             <div style={{ overflowY: 'auto', flex: 1 }}>
-              {filteredSongs.map(song => {
-                const used = gigSongSet.has(song.id)
+              {/* ── Short Breaks section ── */}
+              <div
+                onClick={() => setBreaksCollapsed(v => !v)}
+                style={{ padding: '6px 10px 5px', background: '#0c0c1a', borderBottom: '1px solid #0e0e1a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}
+              >
+                <span style={{ fontFamily: VCR, fontSize: '0.55rem', color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.12em' }}>Short Breaks</span>
+                <span style={{ fontSize: '0.6rem', color: '#9a7000' }}>{breaksCollapsed ? '▶' : '▼'}</span>
+              </div>
+              {!breaksCollapsed && breaks.map(brk => (
+                <div
+                  key={brk.id}
+                  draggable
+                  onDragStart={e => {
+                    dragRef.current = { type: 'library', itemId: brk.id, itemType: 'break' }
+                    e.dataTransfer.effectAllowed = 'copy'
+                  }}
+                  onDragEnd={() => { dragRef.current = null; setDropTarget(null) }}
+                  style={{
+                    padding: '6px 10px', borderBottom: '1px solid #0e0e1a',
+                    cursor: 'grab', userSelect: 'none',
+                    borderLeft: '2px solid #f59e0b33',
+                  }}
+                >
+                  <div style={{ fontSize: '0.72rem', color: '#f59e0b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{brk.name}</div>
+                  <div style={{ fontFamily: VCR, fontSize: '0.52rem', color: '#9a7000', marginTop: 1 }}>{brk.durationMins} min break</div>
+                </div>
+              ))}
+
+              {/* ── Songs ── */}
+              <div
+                onClick={() => setSongsCollapsed(v => !v)}
+                style={{ padding: '6px 10px 5px', background: '#0c0c1a', borderTop: '1px solid #1a1a2e', borderBottom: '1px solid #0e0e1a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}
+              >
+                <span style={LABEL}>Songs</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }} onClick={e => e.stopPropagation()}>
+                  <select
+                    value={sortBy}
+                    onChange={e => setSortBy(e.target.value)}
+                    style={{ fontFamily: VCR, fontSize: '0.5rem', background: '#131328', border: '1px solid #2a2a3a', color: '#a78bfa', borderRadius: 4, padding: '2px 4px', cursor: 'pointer' }}
+                  >
+                    <option value="az">A → Z</option>
+                    <option value="za">Z → A</option>
+                    <option value="artist">Artist</option>
+                    <option value="bpm">BPM</option>
+                  </select>
+                  <span style={{ fontSize: '0.6rem', color: '#3a3a6a' }}>{songsCollapsed ? '▶' : '▼'}</span>
+                </div>
+              </div>
+              {!songsCollapsed && filteredSongs.map(song => {
+                const used = gigItemSet.has(song.id)
                 return (
                   <div
                     key={song.id}
                     draggable
                     onDragStart={e => {
-                      dragRef.current = { type: 'library', songId: song.id }
+                      dragRef.current = { type: 'library', itemId: song.id, itemType: 'song' }
                       e.dataTransfer.effectAllowed = 'copy'
                     }}
                     onDragEnd={() => { dragRef.current = null; setDropTarget(null) }}
@@ -313,9 +350,9 @@ export function SetlistEditor({ songs = [], onLoadGig, onDirtyChange }) {
           {/* ── Set columns ── */}
           <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
             {activeGig.sets.map((set, setIdx) => {
-              const setSongs   = set.songs.map(id => songs.find(s => s.id === id)).filter(Boolean)
-              const isLoaded   = loadedSet?.gigId === activeGigId && loadedSet?.setIdx === setIdx
-              const isColDrop  = dropTarget?.setIdx === setIdx && dropTarget?.songIdx === undefined
+              const setItems    = set.songs.map(id => findItem(id)).filter(Boolean)
+              const isLoaded    = loadedSet?.gigId === activeGigId && loadedSet?.setIdx === setIdx
+              const isColDrop   = dropTarget?.setIdx === setIdx && dropTarget?.songIdx === undefined
               const isCollapsed = collapsedSets.has(set.id)
 
               function toggleCollapse() {
@@ -337,7 +374,7 @@ export function SetlistEditor({ songs = [], onLoadGig, onDirtyChange }) {
                     <span style={{ fontFamily: VCR, fontSize: '0.55rem', color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.1em', writingMode: 'vertical-rl', transform: 'rotate(180deg)', marginTop: 12, whiteSpace: 'nowrap' }}>
                       {set.name}
                     </span>
-                    <span style={{ fontFamily: VCR, fontSize: '0.48rem', color: '#333', marginTop: 6 }}>{setSongs.length}</span>
+                    <span style={{ fontFamily: VCR, fontSize: '0.48rem', color: '#333', marginTop: 6 }}>{setItems.length}</span>
                   </div>
                 )
               }
@@ -368,9 +405,9 @@ export function SetlistEditor({ songs = [], onLoadGig, onDirtyChange }) {
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                      {(() => { const mins = estMins(set.songs); return (
+                      {(() => { const mins = estSetMins(setItems); return (
                         <span style={{ fontSize: '0.78rem', color: durColor(mins) }}>
-                          {setSongs.length} songs · ~{mins}min
+                          {setItems.length} items · ~{mins}min
                         </span>
                       ) })()}
                       <Btn
@@ -384,7 +421,7 @@ export function SetlistEditor({ songs = [], onLoadGig, onDirtyChange }) {
                       >{isLoaded ? '✓ Loaded' : '▶ Load'}</Btn>
                     </div>
 
-                    {/* Break time */}
+                    {/* Break time after set */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                       <span style={{ fontFamily: VCR, fontSize: '0.5rem', color: '#2a2a4a' }}>BREAK</span>
                       <input
@@ -398,52 +435,62 @@ export function SetlistEditor({ songs = [], onLoadGig, onDirtyChange }) {
                     </div>
                   </div>
 
-                  {/* Song list / drop zone */}
+                  {/* Item list / drop zone */}
                   <div
                     style={{ flex: 1, overflowY: 'auto', background: isColDrop ? '#a855f706' : 'transparent', transition: 'background 0.1s' }}
                     onDragOver={e => { e.preventDefault(); setDropTarget({ setIdx }) }}
                     onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDropTarget(null) }}
                     onDrop={e => handleDrop(e, setIdx)}
                   >
-                    {setSongs.length === 0 && (
+                    {setItems.length === 0 && (
                       <div style={{ padding: '24px 12px', textAlign: 'center', fontFamily: VCR, fontSize: '0.55rem', color: '#2a2a3a', letterSpacing: '0.1em', userSelect: 'none' }}>
                         DROP SONGS HERE
                       </div>
                     )}
 
-                    {setSongs.map((song, songIdx) => {
-                      const isDropBefore = dropTarget?.setIdx === setIdx && dropTarget?.songIdx === songIdx
+                    {setItems.map((item, itemIdx) => {
+                      const isDropBefore = dropTarget?.setIdx === setIdx && dropTarget?.songIdx === itemIdx
+                      const isBreak = item.type === 'break'
                       return (
-                        <React.Fragment key={`${song.id}-${songIdx}`}>
-                          {/* Drop indicator */}
+                        <React.Fragment key={`${item.id}-${itemIdx}`}>
                           <div
                             style={{ height: isDropBefore ? 2 : 0, background: '#a855f7', margin: '0 8px', borderRadius: 1, transition: 'height 0.08s', boxShadow: isDropBefore ? '0 0 6px #a855f7' : 'none' }}
-                            onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropTarget({ setIdx, songIdx }) }}
+                            onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropTarget({ setIdx, songIdx: itemIdx }) }}
                           />
                           <div
                             draggable
                             onDragStart={e => {
-                              dragRef.current = { type: 'set', songId: song.id, setIdx, songIdx }
+                              dragRef.current = { type: 'set', itemId: item.id, setIdx, itemIdx }
                               e.dataTransfer.effectAllowed = 'move'
                             }}
                             onDragEnd={() => { dragRef.current = null; setDropTarget(null) }}
-                            onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropTarget({ setIdx, songIdx }) }}
-                            onDrop={e => handleDrop(e, setIdx, songIdx)}
+                            onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropTarget({ setIdx, songIdx: itemIdx }) }}
+                            onDrop={e => handleDrop(e, setIdx, itemIdx)}
                             style={{
                               display: 'flex', alignItems: 'center', gap: 6,
                               padding: '5px 10px', cursor: 'grab',
                               borderBottom: '1px solid #0e0e1a',
                               userSelect: 'none',
+                              ...(isBreak ? { background: '#0f0d00', borderLeft: '2px solid #f59e0b33' } : {}),
                             }}
                           >
-                            <span style={{ fontFamily: VCR, fontSize: '0.52rem', color: '#2a2a4a', width: 14, flexShrink: 0 }}>{songIdx + 1}</span>
+                            <span style={{ fontFamily: VCR, fontSize: '0.52rem', color: '#2a2a4a', width: 14, flexShrink: 0 }}>{itemIdx + 1}</span>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: '0.72rem', color: '#c0c0d8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{song.title}</div>
-                              <div style={{ fontFamily: VCR, fontSize: '0.5rem', color: '#444', marginTop: 1 }}>{song.bpm} BPM</div>
+                              {isBreak ? (
+                                <>
+                                  <div style={{ fontSize: '0.65rem', color: '#f59e0b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</div>
+                                  <div style={{ fontFamily: VCR, fontSize: '0.5rem', color: '#9a7000', marginTop: 1 }}>{item.durationMins} min</div>
+                                </>
+                              ) : (
+                                <>
+                                  <div style={{ fontSize: '0.72rem', color: '#c0c0d8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</div>
+                                  <div style={{ fontFamily: VCR, fontSize: '0.5rem', color: '#444', marginTop: 1 }}>{item.bpm} BPM</div>
+                                </>
+                              )}
                             </div>
                             <button
                               onPointerDown={e => e.stopPropagation()}
-                              onClick={e => { e.stopPropagation(); removeSongFromSet(setIdx, songIdx) }}
+                              onClick={e => { e.stopPropagation(); removeItemFromSet(setIdx, itemIdx) }}
                               style={{ background: 'none', border: 'none', color: '#2a2a3a', cursor: 'pointer', fontSize: '0.8rem', lineHeight: 1, padding: '0 2px', flexShrink: 0 }}
                             >×</button>
                           </div>
@@ -451,8 +498,7 @@ export function SetlistEditor({ songs = [], onLoadGig, onDirtyChange }) {
                       )
                     })}
 
-                    {/* Trailing drop zone after last song */}
-                    {setSongs.length > 0 && (
+                    {setItems.length > 0 && (
                       <div style={{ height: 24 }} onDragOver={e => { e.preventDefault(); setDropTarget({ setIdx }) }} />
                     )}
                   </div>

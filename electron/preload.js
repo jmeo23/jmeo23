@@ -17,5 +17,18 @@ contextBridge.exposeInMainWorld('phr0st', {
     return () => ipcRenderer.removeListener('state:update', handler)
   },
 
+  listMidiPorts: () => ipcRenderer.invoke('midi:listPorts'),
+
+  onMidiNote: (cb) => {
+    const handler = (_, d) => cb(d)
+    ipcRenderer.on('midi:note', handler)
+    return () => ipcRenderer.removeListener('midi:note', handler)
+  },
+  onMidiPlayerStopped: (cb) => {
+    const handler = () => cb()
+    ipcRenderer.on('midi:playerStopped', handler)
+    return () => ipcRenderer.removeListener('midi:playerStopped', handler)
+  },
+
   sendCommand: (cmd, payload) => ipcRenderer.send('command', { cmd, payload }),
 })
