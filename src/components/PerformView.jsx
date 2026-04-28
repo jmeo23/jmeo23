@@ -6,6 +6,21 @@ import { SectionCard }        from './SectionCard.jsx'
 import { CountdownOverlay }   from './CountdownOverlay.jsx'
 import { DmxPanel }           from './DmxPanel.jsx'
 
+function BreakView({ brk }) {
+  useEffect(() => {
+    if (brk?.dmxScene) window.phr0st?.sendCommand('dmx:rawScene', { scene: brk.dmxScene })
+  }, [brk?.id])
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 16, padding: 20 }}>
+      <div style={{ fontFamily: "'VCR', monospace", fontSize: '0.6rem', color: '#f59e0b', textTransform: 'uppercase', letterSpacing: '0.14em' }}>Short Break</div>
+      <div style={{ fontFamily: "'Pix32', monospace", fontSize: '1.8rem', color: '#f59e0b', letterSpacing: '0.04em' }}>{brk.name}</div>
+      <div style={{ fontFamily: "'VCR', monospace", fontSize: '0.8rem', color: '#9a7000' }}>{brk.durationMins} minutes</div>
+      <DmxPanel scene={brk.dmxScene} sceneName="break" />
+    </div>
+  )
+}
+
 export function PerformView({ song, onStateChange }) {
   const [smState,        setSmState]        = useState('idle')
   const [activeSection,  setActiveSection]  = useState(-1)
@@ -22,6 +37,21 @@ export function PerformView({ song, onStateChange }) {
   const [sceneName,      setSceneName]      = useState('')
 
   useEffect(() => { onStateChange?.(smState) }, [smState])
+
+  const actionRef = useRef({})
+  actionRef.current = { startSong, stopSong, smState }
+
+  useEffect(() => {
+    const off = window.phr0st?.onStateUpdate(data => {
+      if (data.event === 'midi:loopPad')
+        smRef.current?.toggleLoop(smRef.current.activeSection)
+      if (data.event === 'midi:startSong') {
+        const { startSong, stopSong, smState } = actionRef.current
+        smState === 'idle' ? startSong() : stopSong()
+      }
+    })
+    return () => off?.()
+  }, [])
 
   const smRef     = useRef(null)
   const engineRef = useRef(null)
@@ -64,7 +94,13 @@ export function PerformView({ song, onStateChange }) {
     })
     sm.on('barAdvanced',  ({ bar, totalBars: t }) => { setCurrentBar(bar); setTotalBars(t) })
     sm.on('loopChanged',  ({ isLooping: l })      => setIsLooping(l))
-    sm.on('songEnded',    ()                      => { setSmState('idle'); setActiveSection(-1); setCurrentScene(null); setPendingSection(-1) })
+    sm.on('songEnded',    ()                      => {
+      engineRef.current?.stop()
+      setSmState('idle')
+      setActiveSection(-1)
+      setCurrentScene(null)
+      setPendingSection(-1)
+    })
 
     // forward count-in beat events to main for DMX
     sm.on('countInBeat', () => window.phr0st?.sendCommand('countIn:beat', {}))
@@ -124,9 +160,30 @@ export function PerformView({ song, onStateChange }) {
   }
 
   if (!song) return <div style={{ padding: 20, color: '#555' }}>No song selected</div>
+  if (song.type === 'break') return <BreakView brk={song} />
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 14, height: '100%', overflow: 'hidden', position: 'relative' }}>
+      {/* Live loop banner */}
+      {isLooping && (
+        <div style={{
+          flexShrink: 0,
+          textAlign: 'center',
+          padding: '10px 0',
+          borderRadius: 8,
+          background: '#1a0a2e',
+          border: '1px solid #a855f766',
+          boxShadow: '0 0 18px #a855f744',
+          fontFamily: "'VCR', monospace",
+          fontSize: '1.15rem',
+          letterSpacing: '0.22em',
+          color: '#a855f7',
+          textTransform: 'uppercase',
+        }}>
+          ↻ Live Looping
+        </div>
+      )}
+
       {/* Song header + Start/Stop */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
         <div>
