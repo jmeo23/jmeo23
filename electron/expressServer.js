@@ -23,7 +23,7 @@ function createExpressServer({ distPath, onMessage }) {
   function broadcast(data) {
     const payload = JSON.stringify(data)
     for (const ws of clients) {
-      if (ws.readyState === ws.OPEN) ws.send(payload)
+      if (ws.readyState === 1) ws.send(payload)
     }
   }
 
