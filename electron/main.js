@@ -2,10 +2,18 @@ const { app, BrowserWindow, ipcMain } = require('electron')
 const path = require('path')
 const fs   = require('fs/promises')
 const os   = require('os')
-const { SerialPort } = require('serialport')
-const { createDmxEngine } = require('./dmxEngine')
-const { createMidiEngine } = require('./midiEngine')
 const { createExpressServer } = require('./expressServer')
+
+// Native modules loaded lazily — they require compiled .node binaries.
+// If not compiled yet, hardware features are disabled but the app still starts.
+let SerialPort, createDmxEngine, createMidiEngine
+try {
+  SerialPort    = require('serialport').SerialPort
+  createDmxEngine = require('./dmxEngine').createDmxEngine
+} catch { console.warn('serialport/dmxEngine not available — run npx electron-rebuild') }
+try {
+  createMidiEngine = require('./midiEngine').createMidiEngine
+} catch { console.warn('midi not available — run npx electron-rebuild') }
 
 const SETTINGS_PATH = path.join(os.homedir(), 'phr0stOS', 'settings.json')
 
