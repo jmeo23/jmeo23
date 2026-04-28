@@ -67,6 +67,7 @@ async function loadAllSetlists() {
 }
 
 function watchSongsFolder(onChange) {
+  fsSync.mkdirSync(SONGS_DIR, { recursive: true })
   fsSync.watch(SONGS_DIR, { persistent: false }, () => onChange())
 }
 
