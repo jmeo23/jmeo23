@@ -44,7 +44,7 @@ export function PerformView({ song, onStateChange }) {
   useEffect(() => {
     const off = window.phr0st?.onStateUpdate(data => {
       if (data.event === 'midi:loopPad')
-        smRef.current?.toggleLoop(smRef.current.activeSection)
+        smRef.current?.toggleLoop(smRef.current?.activeSection)
       if (data.event === 'midi:startSong') {
         const { startSong, stopSong, smState } = actionRef.current
         smState === 'idle' ? startSong() : stopSong()
