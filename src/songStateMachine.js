@@ -1,4 +1,4 @@
-const COUNT_IN_DISPLAY = [1, 2, 3, 4, 1, 2, 3, 4]
+const COUNT_IN_DISPLAY = [1, null, 2, null, 1, 2, 3, 4]
 
 export function createStateMachine(song) {
   const listeners = {}
