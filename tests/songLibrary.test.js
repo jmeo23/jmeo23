@@ -19,7 +19,7 @@ vi.mock('fs/promises', async () => {
   }
 })
 
-const { loadSong, loadSetlist, validateSong } = await import('../electron/songLibrary.js')
+const { loadSong, loadSetlist, validateSong } = await import('../electron/songLibrary.mjs')
 
 const VALID_SONG = {
   id: 'basket-case',

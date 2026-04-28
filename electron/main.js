@@ -119,7 +119,7 @@ function setupIpc(loadAllSongs, loadAllSetlists, watchSongsFolder) {
 
 app.whenReady().then(async () => {
   try {
-    const { loadAllSongs, loadAllSetlists, watchSongsFolder } = await import('./songLibrary.js')
+    const { loadAllSongs, loadAllSetlists, watchSongsFolder } = await import('./songLibrary.mjs')
     createWindow()
     setupIpc(loadAllSongs, loadAllSetlists, watchSongsFolder)
     const wsServer = createExpressServer({
