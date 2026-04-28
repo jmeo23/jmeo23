@@ -58,6 +58,7 @@ export class AudioEngine {
     src.buffer = buffer
     src.connect(this.ctx.destination)
     src.start(time)
+    src.stop(time + buffer.duration)
   }
 
   _playTone(freq, time) {
