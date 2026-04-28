@@ -63,7 +63,7 @@ export function PerformView({ song, onStateChange, nextSong, onAutoAdvance }) {
   autoPlayRef.current = autoPlay
 
   useEffect(() => {
-    if (pendingAutoStartRef.current) {
+    if (pendingAutoStartRef.current && smState === 'idle') {
       pendingAutoStartRef.current = false
       startSong()
     }
@@ -158,6 +158,7 @@ export function PerformView({ song, onStateChange, nextSong, onAutoAdvance }) {
       setIsLooping(true)
       setCurrentBar(1)
     } else {
+      pendingAutoStartRef.current = false
       smRef.current?.cancel()
       engineRef.current?.stop()
       setSmState('idle')
