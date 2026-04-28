@@ -137,6 +137,7 @@ export function PerformView({ song, onStateChange, nextSong, onAutoAdvance }) {
   }
 
   function stopSong() {
+    pendingAutoStartRef.current = false
     engineRef.current?.stop()
     smRef.current?.stop()
     setSmState('idle')
