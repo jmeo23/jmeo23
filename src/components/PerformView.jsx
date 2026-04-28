@@ -21,7 +21,7 @@ function BreakView({ brk }) {
   )
 }
 
-export function PerformView({ song, onStateChange }) {
+export function PerformView({ song, onStateChange, nextSong, onAutoAdvance }) {
   const [smState,        setSmState]        = useState('idle')
   const [activeSection,  setActiveSection]  = useState(-1)
   const [currentBar,     setCurrentBar]     = useState(0)
@@ -35,6 +35,7 @@ export function PerformView({ song, onStateChange }) {
   const [pendingSection, setPendingSection] = useState(-1)
   const [currentScene,   setCurrentScene]   = useState(null)
   const [sceneName,      setSceneName]      = useState('')
+  const [autoPlay,       setAutoPlay]       = useState(false)
 
   useEffect(() => { onStateChange?.(smState) }, [smState])
 
@@ -56,6 +57,17 @@ export function PerformView({ song, onStateChange }) {
   const smRef     = useRef(null)
   const engineRef = useRef(null)
   const dotsRef   = useRef(0)
+
+  const autoPlayRef         = useRef(false)
+  const pendingAutoStartRef = useRef(false)
+  autoPlayRef.current = autoPlay
+
+  useEffect(() => {
+    if (pendingAutoStartRef.current) {
+      pendingAutoStartRef.current = false
+      startSong()
+    }
+  }, [song?.id])
 
   const handleBeat = useCallback((beatIdx) => {
     setBeatIndex(beatIdx)
@@ -94,12 +106,16 @@ export function PerformView({ song, onStateChange }) {
     })
     sm.on('barAdvanced',  ({ bar, totalBars: t }) => { setCurrentBar(bar); setTotalBars(t) })
     sm.on('loopChanged',  ({ isLooping: l })      => setIsLooping(l))
-    sm.on('songEnded',    ()                      => {
+    sm.on('songEnded', () => {
       engineRef.current?.stop()
       setSmState('idle')
       setActiveSection(-1)
       setCurrentScene(null)
       setPendingSection(-1)
+      if (autoPlayRef.current && nextSong) {
+        pendingAutoStartRef.current = true
+        onAutoAdvance?.()
+      }
     })
 
     // forward count-in beat events to main for DMX
@@ -195,17 +211,31 @@ export function PerformView({ song, onStateChange }) {
             ))}
           </div>
         </div>
-        <button
-          onClick={smState === 'idle' ? startSong : stopSong}
-          style={{
-            padding: '8px 20px', borderRadius: 20, fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer',
-            border: `1px solid ${smState === 'idle' ? '#22c55e66' : '#ef444466'}`,
-            background: smState === 'idle' ? '#0a1a10' : '#1a0808',
-            color: smState === 'idle' ? '#22c55e' : '#ef4444',
-          }}
-        >
-          {smState === 'idle' ? 'Start Song' : 'Stop'}
-        </button>
+        {/* AutoPlay toggle + Start/Stop */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={() => setAutoPlay(v => !v)}
+            style={{
+              padding: '8px 16px', borderRadius: 20, fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer',
+              border: `1px solid ${autoPlay ? '#a855f766' : '#2a2a3a'}`,
+              background: autoPlay ? '#1a0a2a' : 'transparent',
+              color: autoPlay ? '#a855f7' : '#444',
+            }}
+          >
+            AUTO
+          </button>
+          <button
+            onClick={smState === 'idle' ? startSong : stopSong}
+            style={{
+              padding: '8px 20px', borderRadius: 20, fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer',
+              border: `1px solid ${smState === 'idle' ? '#22c55e66' : '#ef444466'}`,
+              background: smState === 'idle' ? '#0a1a10' : '#1a0808',
+              color: smState === 'idle' ? '#22c55e' : '#ef4444',
+            }}
+          >
+            {smState === 'idle' ? 'Start Song' : 'Stop'}
+          </button>
+        </div>
       </div>
 
       {/* Click track */}
