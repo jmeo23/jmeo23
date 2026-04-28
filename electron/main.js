@@ -23,15 +23,23 @@ function createWindow() {
   }
 }
 
-app.whenReady().then(() => {
-  createWindow()
-
-  // Placeholder IPC handlers — replaced with real implementations in Task 3
-  ipcMain.handle('songs:getAll',    () => [])
-  ipcMain.handle('setlists:getAll', () => [])
+function setupIpc(loadAllSongs, loadAllSetlists, watchSongsFolder) {
+  ipcMain.handle('songs:getAll',    () => loadAllSongs())
+  ipcMain.handle('setlists:getAll', () => loadAllSetlists())
   ipcMain.handle('settings:get',    () => ({}))
   ipcMain.handle('settings:save',   () => {})
   ipcMain.on('command',             () => {})
+
+  watchSongsFolder(async () => {
+    const songs = await loadAllSongs()
+    mainWindow?.webContents.send('songs:updated', songs)
+  })
+}
+
+app.whenReady().then(async () => {
+  const { loadAllSongs, loadAllSetlists, watchSongsFolder } = await import('./songLibrary.js')
+  createWindow()
+  setupIpc(loadAllSongs, loadAllSetlists, watchSongsFolder)
 })
 
 app.on('window-all-closed', () => {
