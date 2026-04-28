@@ -5,6 +5,7 @@ const os   = require('os')
 const { SerialPort } = require('serialport')
 const { createDmxEngine } = require('./dmxEngine')
 const { createMidiEngine } = require('./midiEngine')
+const { createExpressServer } = require('./expressServer')
 
 const SETTINGS_PATH = path.join(os.homedir(), 'phr0stOS', 'settings.json')
 
@@ -113,6 +114,11 @@ app.whenReady().then(async () => {
     const { loadAllSongs, loadAllSetlists, watchSongsFolder } = await import('./songLibrary.js')
     createWindow()
     setupIpc(loadAllSongs, loadAllSetlists, watchSongsFolder)
+    const wsServer = createExpressServer({
+      distPath: path.join(__dirname, '../dist'),
+      onMessage: (msg) => { if (msg.cmd) handleCommand(null, msg) },
+    })
+    wsServer.listen(3000).then((port) => console.log(`Mobile: http://localhost:${port}`))
   } catch (e) {
     console.error('Failed to initialize song library:', e)
   }
