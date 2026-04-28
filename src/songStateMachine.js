@@ -69,7 +69,6 @@ export function createStateMachine(song) {
       if (beatInBar === 0) {
         currentBar++
         const section = song.sections[activeSection]
-        emit('barAdvanced', { bar: currentBar, totalBars: section.bars })
 
         if (currentBar > section.bars) {
           if (isLooping) {
@@ -84,6 +83,8 @@ export function createStateMachine(song) {
               emit('songEnded')
             }
           }
+        } else {
+          emit('barAdvanced', { bar: currentBar, totalBars: section.bars })
         }
       }
     }

@@ -183,6 +183,14 @@ describe('loop mode', () => {
     beats(sm, 8)     // now advances
     expect(sm.state).toBe('playing:sectionCountIn')
   })
+  test('loop wrap does not emit out-of-bounds barAdvanced', () => {
+    const sm = intoPlaying()
+    sm.toggleLoop(0)
+    const bars = []
+    sm.on('barAdvanced', ({ bar }) => bars.push(bar))
+    beats(sm, 8) // complete 2-bar section + loop
+    expect(bars).toEqual([2, 1])
+  })
 })
 
 // ── manual jump ───────────────────────────────────────────────
