@@ -4,13 +4,15 @@ import { LibraryView }    from './components/LibraryView.jsx'
 import { SettingsView }   from './components/SettingsView.jsx'
 import { SetlistEditor }  from './components/SetlistEditor.jsx'
 import { Sidebar }        from './components/Sidebar.jsx'
-import { DEMO_SONGS }     from './demoSongs.js'
+import { DEMO_SONGS, DEMO_BREAKS } from './demoSongs.js'
+import { computeNextSong } from './lib/setNavigation.js'
 
 const TABS = ['Perform', 'Sets', 'Library', 'Settings']
 
 export default function App() {
   const [view,          setView]          = useState('Perform')
   const [songs,         setSongs]         = useState(DEMO_SONGS)
+  const [breaks,        setBreaks]        = useState(DEMO_BREAKS)
   const [activeSongId,  setActiveSongId]  = useState(DEMO_SONGS[0]?.id)
   const [loadedGig,     setLoadedGig]     = useState(null)
   const [smState,       setSmState]       = useState('idle')
@@ -26,7 +28,15 @@ export default function App() {
     })
   }, [])
 
-  const activeSong = songs.find(s => s.id === activeSongId) ?? songs[0]
+  const activeItem = songs.find(s => s.id === activeSongId)
+    ?? breaks.find(b => b.id === activeSongId)
+    ?? songs[0]
+
+  const nextSong = computeNextSong(loadedGig, songs, activeSongId)
+
+  function handleAutoAdvance() {
+    if (nextSong) setActiveSongId(nextSong.id)
+  }
 
   function handleTabChange(tab) {
     if (view === 'Sets' && setsDirty && tab !== 'Sets') {
@@ -56,9 +66,11 @@ export default function App() {
         {/* App title */}
         <span style={{ fontFamily: "'Pix32', monospace", color: '#a855f7', fontSize: '1.1rem', letterSpacing: '0.04em', textShadow: '0 0 18px #a855f766', userSelect: 'none' }}>phr0stOS</span>
         <span style={{ width: 1, height: 16, background: '#2a2a3a' }} />
-        <span style={{ color: '#c0c0d8', fontWeight: 700, fontSize: '0.85rem' }}>{activeSong?.title}</span>
-        <span style={{ color: '#444', fontSize: '0.7rem' }}>{activeSong?.artist}</span>
-        <span style={{ color: '#333', fontSize: '0.65rem' }}>{activeSong?.bpm} BPM</span>
+        <span style={{ color: '#c0c0d8', fontWeight: 700, fontSize: '0.85rem' }}>{activeItem?.title ?? activeItem?.name}</span>
+        {activeItem?.type !== 'break' && <>
+          <span style={{ color: '#444', fontSize: '0.7rem' }}>{activeItem?.artist}</span>
+          <span style={{ color: '#333', fontSize: '0.65rem' }}>{activeItem?.bpm} BPM</span>
+        </>}
         {/* Live / idle badge */}
         <span style={{
           marginLeft: 'auto',
@@ -88,15 +100,16 @@ export default function App() {
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <Sidebar
           songs={songs}
+          breaks={breaks}
           loadedGig={loadedGig}
           activeSongId={activeSongId}
           onSelectSong={(id) => { setActiveSongId(id); setView('Perform') }}
           onOpenSets={() => setView('Sets')}
         />
         <div style={{ flex: 1, overflow: 'hidden' }}>
-          {view === 'Perform'  && <PerformView song={activeSong} onStateChange={setSmState} />}
+          {view === 'Perform'  && <PerformView song={activeItem} onStateChange={setSmState} nextSong={nextSong} onAutoAdvance={handleAutoAdvance} />}
           {view === 'Library'  && <LibraryView songs={songs} onSelect={s => { setActiveSongId(s.id); setView('Perform') }} />}
-          {view === 'Sets'     && <SetlistEditor songs={songs} onLoadGig={(gig) => { setLoadedGig(gig); setView('Perform') }} onDirtyChange={setSetsDirty} />}
+          {view === 'Sets'     && <SetlistEditor songs={songs} breaks={breaks} onLoadGig={(gig) => { setLoadedGig(gig); setView('Perform') }} onDirtyChange={setSetsDirty} />}
           {view === 'Settings' && <SettingsView />}
         </div>
       </div>
