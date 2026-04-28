@@ -37,9 +37,13 @@ function setupIpc(loadAllSongs, loadAllSetlists, watchSongsFolder) {
 }
 
 app.whenReady().then(async () => {
-  const { loadAllSongs, loadAllSetlists, watchSongsFolder } = await import('./songLibrary.js')
-  createWindow()
-  setupIpc(loadAllSongs, loadAllSetlists, watchSongsFolder)
+  try {
+    const { loadAllSongs, loadAllSetlists, watchSongsFolder } = await import('./songLibrary.js')
+    createWindow()
+    setupIpc(loadAllSongs, loadAllSetlists, watchSongsFolder)
+  } catch (e) {
+    console.error('Failed to initialize song library:', e)
+  }
 })
 
 app.on('window-all-closed', () => {
