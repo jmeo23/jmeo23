@@ -32,6 +32,7 @@ export default function App() {
     ?? breaks.find(b => b.id === activeSongId)
     ?? songs[0]
 
+  // activeSongId may be a break ID; computeNextSong returns null for breaks (no auto-advance during breaks)
   const nextSong = computeNextSong(loadedGig, songs, activeSongId)
 
   function handleAutoAdvance() {
