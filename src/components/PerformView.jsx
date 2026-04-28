@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react'
+import React, { useRef, useState, useCallback, useEffect } from 'react'
 import { AudioEngine }        from '../audioEngine.js'
 import { createStateMachine } from '../songStateMachine.js'
 import { ClickTrack }         from './ClickTrack.jsx'
@@ -6,7 +6,7 @@ import { SectionCard }        from './SectionCard.jsx'
 import { CountdownOverlay }   from './CountdownOverlay.jsx'
 import { DmxPanel }           from './DmxPanel.jsx'
 
-export function PerformView({ song }) {
+export function PerformView({ song, onStateChange }) {
   const [smState,        setSmState]        = useState('idle')
   const [activeSection,  setActiveSection]  = useState(-1)
   const [currentBar,     setCurrentBar]     = useState(0)
@@ -20,6 +20,8 @@ export function PerformView({ song }) {
   const [pendingSection, setPendingSection] = useState(-1)
   const [currentScene,   setCurrentScene]   = useState(null)
   const [sceneName,      setSceneName]      = useState('')
+
+  useEffect(() => { onStateChange?.(smState) }, [smState])
 
   const smRef     = useRef(null)
   const engineRef = useRef(null)
@@ -95,13 +97,21 @@ export function PerformView({ song }) {
   }
 
   function handleCancel() {
-    smRef.current?.cancel()
-    engineRef.current?.stop()
-    setSmState('idle')
-    setActiveSection(-1)
-    setOverlay({ mode: 'hidden' })
-    setPendingSection(-1)
     window.phr0st?.sendCommand('countIn:stop', {})
+    if (overlay.mode === 'sectionTransition') {
+      smRef.current?.cancelToLoop()
+      setOverlay({ mode: 'hidden' })
+      setPendingSection(-1)
+      setIsLooping(true)
+      setCurrentBar(1)
+    } else {
+      smRef.current?.cancel()
+      engineRef.current?.stop()
+      setSmState('idle')
+      setActiveSection(-1)
+      setOverlay({ mode: 'hidden' })
+      setPendingSection(-1)
+    }
   }
 
   function getSectionStatus(idx) {
@@ -120,11 +130,11 @@ export function PerformView({ song }) {
       {/* Song header + Start/Stop */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
         <div>
-          <div style={{ fontSize: '1.2rem', fontWeight: 900 }}>{song.title}</div>
-          <div style={{ fontSize: '0.75rem', color: '#555' }}>{song.artist}</div>
+          <div style={{ fontFamily: "'Pix32', monospace", fontSize: '1.3rem', color: '#e0e0f0', letterSpacing: '0.02em' }}>{song.title}</div>
+          <div style={{ fontSize: '0.7rem', color: '#555', marginTop: 2 }}>{song.artist}</div>
           <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
             {[`${song.bpm} BPM`, `${song.timeSignature.join('/')}`, song.key, `${song.sections.length} sections`].map(t => (
-              <span key={t} style={{ fontSize: '0.6rem', padding: '2px 8px', borderRadius: 10, border: '1px solid #2a2a3a', color: '#666', background: '#131328' }}>{t}</span>
+              <span key={t} style={{ fontFamily: "'VCR', monospace", fontSize: '0.58rem', padding: '2px 8px', borderRadius: 10, border: '1px solid #2a2a3a', color: '#666', background: '#131328' }}>{t}</span>
             ))}
           </div>
         </div>
@@ -148,6 +158,7 @@ export function PerformView({ song }) {
         currentBar={currentBar}
         totalBars={totalBars}
         isOn={clickOn}
+        isIdle={smState === 'idle'}
         onToggle={() => {
           const next = !clickOn
           setClickOn(next)

@@ -1,4 +1,4 @@
-const COUNT_IN_DISPLAY = [1, null, 2, null, 1, 2, 3, 4]
+const COUNT_IN_DISPLAY = [1, 2, 3, 4, 1, 2, 3, 4]
 
 export function createStateMachine(song) {
   const listeners = {}
@@ -100,6 +100,22 @@ export function createStateMachine(song) {
   function stop()   { toIdle() }
   function cancel() { toIdle() }
 
+  function cancelToLoop() {
+    if (state === 'playing:sectionCountIn') {
+      pendingSection = -1
+      countInBeat    = 0
+      currentBar     = 1
+      beatInBar      = 0
+      state          = 'playing'
+      isLooping      = true
+      emit('overlayHide')
+      emit('loopChanged', { isLooping: true })
+      emit('barAdvanced', { bar: 1, totalBars: song.sections[activeSection].bars })
+    } else {
+      toIdle()
+    }
+  }
+
   function toggleLoop(sectionIdx) {
     if (sectionIdx !== activeSection) return
     isLooping = !isLooping
@@ -117,6 +133,6 @@ export function createStateMachine(song) {
     get currentBar()     { return currentBar },
     get isLooping()      { return isLooping },
     get pendingSection() { return pendingSection },
-    on, startSong, stop, cancel, toggleLoop, jumpToSection, onBeat,
+    on, startSong, stop, cancel, cancelToLoop, toggleLoop, jumpToSection, onBeat,
   }
 }

@@ -1,4 +1,467 @@
-import React from 'react'
-export function SetlistEditor() {
-  return <div style={{ padding: 20, color: '#555' }}>Setlist Editor (coming soon)</div>
+import React, { useState, useRef, useEffect } from 'react'
+
+const VCR = "inherit"
+const PIX = "inherit"
+
+function newSet(n) {
+  return { id: `s${Date.now()}${n}`, name: `Set ${n}`, songs: [], breakAfterMins: 15 }
+}
+
+function newGig() {
+  return {
+    id: `g${Date.now()}`,
+    date: new Date().toISOString().slice(0, 10),
+    venue: '',
+    sets: [newSet(1)],
+  }
+}
+
+function estMins(songIds) {
+  return Math.round(songIds.length * 3.5)
+}
+
+function durColor(mins) {
+  if (mins > 60)  return '#f87171' // red — WCAG AA on dark bg (5.7:1)
+  if (mins >= 30) return '#fbbf24' // amber — WCAG AA on dark bg (8.8:1)
+  return '#888'
+}
+
+function Btn({ children, color = '#a855f7', disabled, onClick, style = {} }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        padding: '4px 12px', borderRadius: 6,
+        border: `1px solid ${disabled ? '#1e1e3a' : color + '55'}`,
+        background: disabled ? 'transparent' : color + '12',
+        color: disabled ? '#2a2a4a' : color,
+        fontFamily: VCR, fontSize: '0.62rem', cursor: disabled ? 'default' : 'pointer',
+        letterSpacing: '0.06em', opacity: disabled ? 0.5 : 1,
+        ...style,
+      }}
+    >{children}</button>
+  )
+}
+
+export function SetlistEditor({ songs = [], onLoadGig, onDirtyChange }) {
+  const [gigs, setGigs] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('phr0st-gigs') || '[]') } catch { return [] }
+  })
+  const [activeGigId, setActiveGigId] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('phr0st-gigs') || '[]')
+      return saved[0]?.id ?? null
+    } catch { return null }
+  })
+  const [query, setQuery]           = useState('')
+  const [sortBy, setSortBy]         = useState('az')
+  const [dropTarget, setDropTarget] = useState(null)
+  const [loadedSet, setLoadedSet]   = useState(null)
+  const [saveFlash,     setSaveFlash]     = useState(false)
+  const [collapsedSets, setCollapsedSets] = useState(new Set())
+  const dragRef   = useRef(null)
+  const savedRef  = useRef(localStorage.getItem('phr0st-gigs') || '[]')
+  const isDirty   = JSON.stringify(gigs) !== savedRef.current
+
+  const activeGig = gigs.find(g => g.id === activeGigId) ?? null
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty)
+  }, [isDirty])
+
+  function save() {
+    const json = JSON.stringify(gigs)
+    localStorage.setItem('phr0st-gigs', json)
+    savedRef.current = json
+    setSaveFlash(true)
+    setTimeout(() => setSaveFlash(false), 1500)
+  }
+
+  function updateGig(updater) {
+    setGigs(prev => prev.map(g => g.id === activeGigId ? updater(g) : g))
+  }
+
+  function createGig() {
+    const g = newGig()
+    setGigs(prev => [...prev, g])
+    setActiveGigId(g.id)
+  }
+
+  function deleteGig(id) {
+    setGigs(prev => {
+      const next = prev.filter(g => g.id !== id)
+      if (activeGigId === id) setActiveGigId(next[0]?.id ?? null)
+      return next
+    })
+    if (loadedSet?.gigId === id) setLoadedSet(null)
+  }
+
+  function addSet() {
+    if (!activeGig || activeGig.sets.length >= 4) return
+    updateGig(g => ({ ...g, sets: [...g.sets, newSet(g.sets.length + 1)] }))
+  }
+
+  function removeSet(setIdx) {
+    updateGig(g => ({ ...g, sets: g.sets.filter((_, i) => i !== setIdx) }))
+    if (loadedSet?.gigId === activeGigId && loadedSet?.setIdx === setIdx) setLoadedSet(null)
+  }
+
+  function updateGigField(field, value) {
+    updateGig(g => ({ ...g, [field]: value }))
+  }
+
+  function updateSetField(setIdx, field, value) {
+    updateGig(g => ({
+      ...g,
+      sets: g.sets.map((s, i) => i === setIdx ? { ...s, [field]: value } : s),
+    }))
+  }
+
+  function removeSongFromSet(setIdx, songIdx) {
+    updateGig(g => ({
+      ...g,
+      sets: g.sets.map((s, i) => i === setIdx
+        ? { ...s, songs: s.songs.filter((_, j) => j !== songIdx) }
+        : s
+      ),
+    }))
+  }
+
+  function handleDrop(e, setIdx, atSongIdx) {
+    e.preventDefault()
+    e.stopPropagation()
+    setDropTarget(null)
+    const drag = dragRef.current
+    dragRef.current = null
+    if (!drag) return
+
+    if (drag.type === 'library') {
+      updateGig(g => {
+        const sets = g.sets.map(s => ({ ...s, songs: [...s.songs] }))
+        if (sets[setIdx].songs.includes(drag.songId)) return g
+        const at = atSongIdx ?? sets[setIdx].songs.length
+        sets[setIdx].songs.splice(at, 0, drag.songId)
+        return { ...g, sets }
+      })
+    } else if (drag.type === 'set') {
+      updateGig(g => {
+        const sets = g.sets.map(s => ({ ...s, songs: [...s.songs] }))
+        const [removed] = sets[drag.setIdx].songs.splice(drag.songIdx, 1)
+        let at = atSongIdx ?? sets[setIdx].songs.length
+        if (drag.setIdx === setIdx && atSongIdx !== undefined && atSongIdx > drag.songIdx) at--
+        sets[setIdx].songs.splice(Math.max(0, at), 0, removed)
+        return { ...g, sets }
+      })
+    }
+  }
+
+  const filteredSongs = songs
+    .filter(s =>
+      s.title.toLowerCase().includes(query.toLowerCase()) ||
+      (s.artist ?? '').toLowerCase().includes(query.toLowerCase())
+    )
+    .slice()
+    .sort((a, b) => {
+      if (sortBy === 'az')     return a.title.localeCompare(b.title)
+      if (sortBy === 'za')     return b.title.localeCompare(a.title)
+      if (sortBy === 'artist') return (a.artist ?? '').localeCompare(b.artist ?? '') || a.title.localeCompare(b.title)
+      if (sortBy === 'key')    return (a.key ?? '').localeCompare(b.key ?? '') || a.title.localeCompare(b.title)
+      return 0
+    })
+
+  const gigSongSet = new Set(activeGig?.sets.flatMap(s => s.songs) ?? [])
+
+  const LABEL = {
+    fontFamily: VCR, fontSize: '0.55rem', color: '#a78bfa',
+    textTransform: 'uppercase', letterSpacing: '0.12em',
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: '#0d0d14' }}>
+
+      {/* ── Event bar ── */}
+      <div style={{ background: '#0f0f1e', borderBottom: '1px solid #1e1e3a', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>
+
+        <select
+          value={activeGigId ?? ''}
+          onChange={e => setActiveGigId(e.target.value || null)}
+          style={{ fontFamily: VCR, fontSize: '0.65rem', background: '#131328', border: '1px solid #2a2a3a', color: '#a78bfa', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', maxWidth: 220 }}
+        >
+          <option value="">— Select Event —</option>
+          {gigs.map(g => (
+            <option key={g.id} value={g.id}>
+              {g.date}{g.venue ? ` · ${g.venue}` : ''}
+            </option>
+          ))}
+        </select>
+
+        <Btn color="#22c55e" onClick={createGig}>+ New Event/Setlist</Btn>
+
+        {activeGig && (
+          <>
+            <span style={{ width: 1, height: 16, background: '#1e1e3a', flexShrink: 0 }} />
+
+            <input
+              value={activeGig.venue}
+              onChange={e => updateGigField('venue', e.target.value)}
+              placeholder="Venue name…"
+              style={{
+                fontFamily: PIX, fontSize: '0.9rem',
+                background: 'transparent', border: 'none', borderBottom: '1px solid #2a2a3a',
+                color: '#e0e0f0', padding: '2px 4px', width: 240, outline: 'none',
+              }}
+            />
+
+            <input
+              type="date"
+              value={activeGig.date}
+              onChange={e => updateGigField('date', e.target.value)}
+              style={{ fontFamily: VCR, fontSize: '0.65rem', background: '#131328', border: '1px solid #2a2a3a', color: '#888', borderRadius: 6, padding: '4px 8px', colorScheme: 'dark' }}
+            />
+
+            <Btn
+              color="#a855f7"
+              disabled={activeGig.sets.length >= 4}
+              onClick={addSet}
+            >+ Add Set</Btn>
+
+            <Btn
+              color="#a855f7"
+              onClick={() => {
+                const label = activeGig.venue || activeGig.date
+                onLoadGig?.({ label, sets: activeGig.sets.map(s => ({ name: s.name, songs: s.songs })) })
+              }}
+              style={{ marginLeft: 'auto' }}
+            >▶ Load Event</Btn>
+
+            <Btn
+              color={saveFlash ? '#22c55e' : isDirty ? '#f59e0b' : '#2a2a4a'}
+              disabled={!isDirty && !saveFlash}
+              onClick={save}
+              style={{ minWidth: 72 }}
+            >{saveFlash ? '✓ Saved' : isDirty ? '● Save' : 'Saved'}</Btn>
+
+            <Btn
+              color="#ef4444"
+              onClick={() => { if (window.confirm(`Delete "${activeGig.venue || activeGig.date}"?`)) deleteGig(activeGigId) }}
+            >Delete Event</Btn>
+          </>
+        )}
+      </div>
+
+      {/* ── Body ── */}
+      {!activeGig ? (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
+          <span style={{ fontFamily: VCR, color: '#2a2a4a', fontSize: '0.75rem', letterSpacing: '0.12em' }}>NO EVENTS</span>
+          <Btn color="#a855f7" onClick={createGig}>Create Your First Event/Setlist</Btn>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+
+          {/* ── Library panel ── */}
+          <div style={{ width: 210, borderRight: '1px solid #1a1a2e', display: 'flex', flexDirection: 'column', background: '#0b0b18', flexShrink: 0 }}>
+            <div style={{ padding: '8px 10px', borderBottom: '1px solid #12121f' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <div style={LABEL}>Library</div>
+                <select
+                  value={sortBy}
+                  onChange={e => setSortBy(e.target.value)}
+                  style={{ fontFamily: VCR, fontSize: '0.5rem', background: '#131328', border: '1px solid #2a2a3a', color: '#a78bfa', borderRadius: 4, padding: '2px 4px', cursor: 'pointer' }}
+                >
+                  <option value="az">A → Z</option>
+                  <option value="za">Z → A</option>
+                  <option value="artist">Artist</option>
+                  <option value="key">Key</option>
+                </select>
+              </div>
+              <input
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="Search…"
+                style={{ width: '100%', padding: '5px 8px', background: '#131328', border: '1px solid #2a2a3a', borderRadius: 6, color: '#e0e0f0', fontSize: '0.72rem', outline: 'none' }}
+              />
+            </div>
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              {filteredSongs.map(song => {
+                const used = gigSongSet.has(song.id)
+                return (
+                  <div
+                    key={song.id}
+                    draggable
+                    onDragStart={e => {
+                      dragRef.current = { type: 'library', songId: song.id }
+                      e.dataTransfer.effectAllowed = 'copy'
+                    }}
+                    onDragEnd={() => { dragRef.current = null; setDropTarget(null) }}
+                    style={{
+                      padding: '6px 10px', borderBottom: '1px solid #0e0e1a',
+                      cursor: 'grab', userSelect: 'none',
+                      borderLeft: `2px solid ${used ? '#22c55e33' : 'transparent'}`,
+                      opacity: used ? 0.4 : 1,
+                    }}
+                  >
+                    <div style={{ fontSize: '0.72rem', color: used ? '#22c55e99' : '#c0c0d8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{song.title}</div>
+                    <div style={{ fontFamily: VCR, fontSize: '0.52rem', color: '#444', marginTop: 1 }}>{song.artist}</div>
+                    <div style={{ fontFamily: VCR, fontSize: '0.52rem', color: '#333', marginTop: 1 }}>{song.bpm} BPM · {song.key}</div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* ── Set columns ── */}
+          <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+            {activeGig.sets.map((set, setIdx) => {
+              const setSongs   = set.songs.map(id => songs.find(s => s.id === id)).filter(Boolean)
+              const isLoaded   = loadedSet?.gigId === activeGigId && loadedSet?.setIdx === setIdx
+              const isColDrop  = dropTarget?.setIdx === setIdx && dropTarget?.songIdx === undefined
+              const isCollapsed = collapsedSets.has(set.id)
+
+              function toggleCollapse() {
+                setCollapsedSets(prev => {
+                  const next = new Set(prev)
+                  next.has(set.id) ? next.delete(set.id) : next.add(set.id)
+                  return next
+                })
+              }
+
+              if (isCollapsed) {
+                return (
+                  <div
+                    key={set.id}
+                    style={{ width: 36, flexShrink: 0, borderRight: '1px solid #1a1a2e', display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#0f0f1e', cursor: 'pointer', userSelect: 'none' }}
+                    onClick={toggleCollapse}
+                    title={`Expand ${set.name}`}
+                  >
+                    <span style={{ fontFamily: VCR, fontSize: '0.55rem', color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.1em', writingMode: 'vertical-rl', transform: 'rotate(180deg)', marginTop: 12, whiteSpace: 'nowrap' }}>
+                      {set.name}
+                    </span>
+                    <span style={{ fontFamily: VCR, fontSize: '0.48rem', color: '#333', marginTop: 6 }}>{setSongs.length}</span>
+                  </div>
+                )
+              }
+
+              return (
+                <div
+                  key={set.id}
+                  style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: '1px solid #1a1a2e', minWidth: 0, overflow: 'hidden' }}
+                >
+                  {/* Set header */}
+                  <div style={{ background: '#0f0f1e', borderBottom: '1px solid #1e1e3a', padding: '8px 10px', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 5 }}>
+                      <button
+                        onClick={toggleCollapse}
+                        style={{ background: 'none', border: 'none', color: '#3a3a6a', cursor: 'pointer', fontSize: '0.75rem', lineHeight: 1, padding: '0 2px', flexShrink: 0 }}
+                        title="Collapse set"
+                      >‹</button>
+                      <input
+                        value={set.name}
+                        onChange={e => updateSetField(setIdx, 'name', e.target.value)}
+                        style={{ fontFamily: VCR, fontSize: '0.72rem', background: 'transparent', border: 'none', borderBottom: '1px solid #2a2a3a', color: '#a78bfa', padding: '1px 2px', outline: 'none', flex: 1, minWidth: 0 }}
+                      />
+                      <button
+                        onClick={() => removeSet(setIdx)}
+                        style={{ background: 'none', border: 'none', color: '#2a2a3a', cursor: 'pointer', fontSize: '0.9rem', lineHeight: 1, padding: '0 2px' }}
+                        title="Remove set"
+                      >×</button>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                      {(() => { const mins = estMins(set.songs); return (
+                        <span style={{ fontSize: '0.78rem', color: durColor(mins) }}>
+                          {setSongs.length} songs · ~{mins}min
+                        </span>
+                      ) })()}
+                      <Btn
+                        color={isLoaded ? '#22c55e' : '#555'}
+                        onClick={() => {
+                          setLoadedSet({ gigId: activeGigId, setIdx })
+                          const label = `${activeGig.venue || activeGig.date} · ${set.name}`
+                          onLoadGig?.({ label, sets: [{ name: set.name, songs: set.songs }] })
+                        }}
+                        style={{ marginLeft: 'auto', fontSize: '0.52rem', padding: '2px 8px', border: isLoaded ? '1px solid #22c55e55' : '1px solid #1e1e3a' }}
+                      >{isLoaded ? '✓ Loaded' : '▶ Load'}</Btn>
+                    </div>
+
+                    {/* Break time */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ fontFamily: VCR, fontSize: '0.5rem', color: '#2a2a4a' }}>BREAK</span>
+                      <input
+                        type="number"
+                        value={set.breakAfterMins}
+                        onChange={e => updateSetField(setIdx, 'breakAfterMins', Number(e.target.value))}
+                        min={0} max={60}
+                        style={{ fontFamily: VCR, width: 52, padding: '2px 6px', background: '#131328', border: '1px solid #1e1e3a', borderRadius: 4, color: '#555', fontSize: '0.72rem', textAlign: 'center' }}
+                      />
+                      <span style={{ fontFamily: VCR, fontSize: '0.5rem', color: '#2a2a4a' }}>MIN</span>
+                    </div>
+                  </div>
+
+                  {/* Song list / drop zone */}
+                  <div
+                    style={{ flex: 1, overflowY: 'auto', background: isColDrop ? '#a855f706' : 'transparent', transition: 'background 0.1s' }}
+                    onDragOver={e => { e.preventDefault(); setDropTarget({ setIdx }) }}
+                    onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDropTarget(null) }}
+                    onDrop={e => handleDrop(e, setIdx)}
+                  >
+                    {setSongs.length === 0 && (
+                      <div style={{ padding: '24px 12px', textAlign: 'center', fontFamily: VCR, fontSize: '0.55rem', color: '#2a2a3a', letterSpacing: '0.1em', userSelect: 'none' }}>
+                        DROP SONGS HERE
+                      </div>
+                    )}
+
+                    {setSongs.map((song, songIdx) => {
+                      const isDropBefore = dropTarget?.setIdx === setIdx && dropTarget?.songIdx === songIdx
+                      return (
+                        <React.Fragment key={`${song.id}-${songIdx}`}>
+                          {/* Drop indicator */}
+                          <div
+                            style={{ height: isDropBefore ? 2 : 0, background: '#a855f7', margin: '0 8px', borderRadius: 1, transition: 'height 0.08s', boxShadow: isDropBefore ? '0 0 6px #a855f7' : 'none' }}
+                            onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropTarget({ setIdx, songIdx }) }}
+                          />
+                          <div
+                            draggable
+                            onDragStart={e => {
+                              dragRef.current = { type: 'set', songId: song.id, setIdx, songIdx }
+                              e.dataTransfer.effectAllowed = 'move'
+                            }}
+                            onDragEnd={() => { dragRef.current = null; setDropTarget(null) }}
+                            onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropTarget({ setIdx, songIdx }) }}
+                            onDrop={e => handleDrop(e, setIdx, songIdx)}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 6,
+                              padding: '5px 10px', cursor: 'grab',
+                              borderBottom: '1px solid #0e0e1a',
+                              userSelect: 'none',
+                            }}
+                          >
+                            <span style={{ fontFamily: VCR, fontSize: '0.52rem', color: '#2a2a4a', width: 14, flexShrink: 0 }}>{songIdx + 1}</span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '0.72rem', color: '#c0c0d8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{song.title}</div>
+                              <div style={{ fontFamily: VCR, fontSize: '0.5rem', color: '#444', marginTop: 1 }}>{song.bpm} BPM</div>
+                            </div>
+                            <button
+                              onPointerDown={e => e.stopPropagation()}
+                              onClick={e => { e.stopPropagation(); removeSongFromSet(setIdx, songIdx) }}
+                              style={{ background: 'none', border: 'none', color: '#2a2a3a', cursor: 'pointer', fontSize: '0.8rem', lineHeight: 1, padding: '0 2px', flexShrink: 0 }}
+                            >×</button>
+                          </div>
+                        </React.Fragment>
+                      )
+                    })}
+
+                    {/* Trailing drop zone after last song */}
+                    {setSongs.length > 0 && (
+                      <div style={{ height: 24 }} onDragOver={e => { e.preventDefault(); setDropTarget({ setIdx }) }} />
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }

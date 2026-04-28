@@ -38,7 +38,7 @@ export function CountdownOverlay({ mode, from, to, displayNum, dotsFilled, onCan
       <div style={S.hint}>SPD-SX loop pad cancels</div>
 
       <button style={S.cancelBtn} onClick={onCancel}>
-        Cancel — keep looping
+        Cancel — Keep Looping
       </button>
     </div>
   )
@@ -57,7 +57,8 @@ const S = {
   toText:   { color: '#f59e0b' },
   number:   {
     fontSize: '9rem', fontWeight: 900, lineHeight: 1, color: '#22c55e',
-    textShadow: '0 0 50px #22c55eaa, 0 0 100px #22c55e44', minWidth: '1ch', textAlign: 'center',
+    textShadow: '0 0 50px #22c55eaa, 0 0 100px #22c55e44',
+    width: 160, textAlign: 'center', flexShrink: 0,
   },
   dotsRow:  { display: 'flex', gap: 12, marginTop: 4 },
   dot:      { width: 18, height: 18, borderRadius: '50%', border: '2px solid #2a2a3a', background: '#1e1e35' },
@@ -65,8 +66,11 @@ const S = {
   dotNow:   { background: '#f59e0b', borderColor: '#f59e0b', boxShadow: '0 0 14px #f59e0baa' },
   hint:     { fontSize: '0.65rem', color: '#444', marginTop: 6 },
   cancelBtn: {
-    marginTop: 10, padding: '7px 22px', borderRadius: 20,
-    border: '1px solid #ef444466', background: 'transparent',
-    color: '#ef4444', fontSize: '0.7rem', cursor: 'pointer',
+    position: 'absolute', bottom: '12%', left: '50%', transform: 'translateX(-50%)',
+    padding: '16px 48px', borderRadius: 40,
+    border: '2px solid #ef444488', background: '#1a0808',
+    color: '#ef4444', fontSize: '1rem', fontWeight: 700, cursor: 'pointer',
+    whiteSpace: 'nowrap', letterSpacing: '0.04em',
+    boxShadow: '0 0 24px #ef444422',
   },
 }

@@ -1,0 +1,28 @@
+@font-face {
+  font-family: 'Pix32';
+  src: url('/fonts/Pix32.ttf') format('truetype');
+  font-display: block;
+}
+@font-face {
+  font-family: 'VCR';
+  src: url('/fonts/VCR_OSD_MONO_1.001.ttf') format('truetype');
+  font-display: block;
+}
+@font-face {
+  font-family: 'EmojiFont';
+  src: url('/fonts/EmojiFont.ttf') format('truetype');
+  font-display: block;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0d0d14;
+  color: #e0e0f0;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: #0d0d14; }
+::-webkit-scrollbar-thumb { background: #2a2a3a; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #a855f755; }
