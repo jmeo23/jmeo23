@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { unlockAudio } from './audioEngine.js'
 import { PerformView }       from './components/PerformView.jsx'
 import { MobilePerformView } from './components/MobilePerformView.jsx'
 import { LibraryView }       from './components/LibraryView.jsx'
@@ -24,6 +25,7 @@ export default function App() {
   const isMobile = useMobileView()
 
   useEffect(() => {
+    document.addEventListener('touchstart', unlockAudio, { once: true })
     window.phr0st?.initializeZoom()
     window.phr0st?.getSongs().then(s => { if (s?.length) setSongs(s) })
     window.phr0st?.onSongsUpdated(s => setSongs(s))
