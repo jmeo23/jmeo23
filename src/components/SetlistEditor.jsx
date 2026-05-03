@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
+import { useMobileView } from '../lib/useMobileView.js'
 
 const VCR = "inherit"
 const PIX = "inherit"
@@ -63,7 +64,9 @@ export function SetlistEditor({ songs = [], breaks = [], onLoadGig, onDirtyChang
   const [collapsedSets, setCollapsedSets] = useState(new Set())
   const [breaksCollapsed, setBreaksCollapsed] = useState(false)
   const [songsCollapsed,  setSongsCollapsed]  = useState(false)
+  const [mobileTargetSet, setMobileTargetSet] = useState(0)
   const dragRef  = useRef(null)
+  const isMobile = useMobileView()
   const savedRef = useRef(localStorage.getItem('phr0st-gigs') || '[]')
   const isDirty  = JSON.stringify(gigs) !== savedRef.current
 
@@ -131,6 +134,27 @@ export function SetlistEditor({ songs = [], breaks = [], onLoadGig, onDirtyChang
         : s
       ),
     }))
+  }
+
+  function moveItem(setIdx, fromIdx, delta) {
+    const toIdx = fromIdx + delta
+    updateGig(g => {
+      const sets = g.sets.map(s => ({ ...s, songs: [...s.songs] }))
+      const [item] = sets[setIdx].songs.splice(fromIdx, 1)
+      sets[setIdx].songs.splice(Math.max(0, toIdx), 0, item)
+      return { ...g, sets }
+    })
+  }
+
+  function tapAddToSet(itemId, itemType) {
+    if (!activeGig) return
+    const si = Math.min(mobileTargetSet, activeGig.sets.length - 1)
+    updateGig(g => {
+      const sets = g.sets.map(s => ({ ...s, songs: [...s.songs] }))
+      if (itemType !== 'break' && sets[si].songs.includes(itemId)) return g
+      sets[si].songs.push(itemId)
+      return { ...g, sets }
+    })
   }
 
   function handleDrop(e, setIdx, atItemIdx) {
@@ -251,6 +275,22 @@ export function SetlistEditor({ songs = [], breaks = [], onLoadGig, onDirtyChang
         )}
       </div>
 
+      {/* ── Mobile set selector bar ── */}
+      {isMobile && activeGig && (
+        <div style={{ background: '#0f0f1e', borderBottom: '1px solid #1a1a2e', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, flexWrap: 'wrap' }}>
+          <span style={{ fontFamily: VCR, fontSize: '0.52rem', color: '#555', textTransform: 'uppercase', letterSpacing: '0.1em', marginRight: 2 }}>Adding to:</span>
+          {activeGig.sets.map((s, i) => (
+            <button key={s.id} onClick={() => setMobileTargetSet(i)} style={{
+              padding: '5px 14px', borderRadius: 6,
+              border: `1px solid ${mobileTargetSet === i ? '#a855f755' : '#1e1e3a'}`,
+              background: mobileTargetSet === i ? '#a855f720' : 'transparent',
+              color: mobileTargetSet === i ? '#a855f7' : '#555',
+              fontSize: '0.7rem', cursor: 'pointer', fontFamily: 'inherit', fontWeight: mobileTargetSet === i ? 700 : 400,
+            }}>{s.name}</button>
+          ))}
+        </div>
+      )}
+
       {/* ── Body ── */}
       {!activeGig ? (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
@@ -293,10 +333,16 @@ export function SetlistEditor({ songs = [], breaks = [], onLoadGig, onDirtyChang
                     padding: '6px 10px', borderBottom: '1px solid #0e0e1a',
                     cursor: 'grab', userSelect: 'none',
                     borderLeft: '2px solid #f59e0b33',
+                    display: 'flex', alignItems: 'center', gap: 6,
                   }}
                 >
-                  <div style={{ fontSize: '0.72rem', color: '#f59e0b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{brk.name}</div>
-                  <div style={{ fontFamily: VCR, fontSize: '0.52rem', color: '#9a7000', marginTop: 1 }}>{brk.durationMins} min break</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '0.72rem', color: '#f59e0b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{brk.name}</div>
+                    <div style={{ fontFamily: VCR, fontSize: '0.52rem', color: '#9a7000', marginTop: 1 }}>{brk.durationMins} min break</div>
+                  </div>
+                  {isMobile && (
+                    <button onClick={() => tapAddToSet(brk.id, 'break')} style={{ background: '#f59e0b22', border: '1px solid #f59e0b44', color: '#f59e0b', borderRadius: 6, width: 28, height: 28, cursor: 'pointer', fontSize: '1.1rem', lineHeight: 1, flexShrink: 0 }}>+</button>
+                  )}
                 </div>
               ))}
 
@@ -336,11 +382,17 @@ export function SetlistEditor({ songs = [], breaks = [], onLoadGig, onDirtyChang
                       cursor: 'grab', userSelect: 'none',
                       borderLeft: `2px solid ${used ? '#22c55e33' : 'transparent'}`,
                       opacity: used ? 0.4 : 1,
+                      display: 'flex', alignItems: 'center', gap: 6,
                     }}
                   >
-                    <div style={{ fontSize: '0.72rem', color: used ? '#22c55e99' : '#c0c0d8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{song.title}</div>
-                    <div style={{ fontFamily: VCR, fontSize: '0.52rem', color: '#444', marginTop: 1 }}>{song.artist}</div>
-                    <div style={{ fontFamily: VCR, fontSize: '0.52rem', color: '#333', marginTop: 1 }}>{song.bpm} BPM · {song.key}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '0.72rem', color: used ? '#22c55e99' : '#c0c0d8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{song.title}</div>
+                      <div style={{ fontFamily: VCR, fontSize: '0.52rem', color: '#444', marginTop: 1 }}>{song.artist}</div>
+                      <div style={{ fontFamily: VCR, fontSize: '0.52rem', color: '#333', marginTop: 1 }}>{song.bpm} BPM · {song.key}</div>
+                    </div>
+                    {isMobile && (
+                      <button onClick={() => tapAddToSet(song.id, 'song')} style={{ background: '#a855f722', border: '1px solid #a855f744', color: '#a855f7', borderRadius: 6, width: 28, height: 28, cursor: 'pointer', fontSize: '1.1rem', lineHeight: 1, flexShrink: 0 }}>+</button>
+                    )}
                   </div>
                 )
               })}
@@ -488,6 +540,22 @@ export function SetlistEditor({ songs = [], breaks = [], onLoadGig, onDirtyChang
                                 </>
                               )}
                             </div>
+                            {isMobile && (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 1, flexShrink: 0 }}>
+                                <button
+                                  onPointerDown={e => e.stopPropagation()}
+                                  onClick={e => { e.stopPropagation(); moveItem(setIdx, itemIdx, -1) }}
+                                  disabled={itemIdx === 0}
+                                  style={{ background: 'none', border: 'none', color: itemIdx === 0 ? '#1e1e3a' : '#555', cursor: itemIdx === 0 ? 'default' : 'pointer', fontSize: '0.7rem', lineHeight: 1, padding: '1px 3px' }}
+                                >▲</button>
+                                <button
+                                  onPointerDown={e => e.stopPropagation()}
+                                  onClick={e => { e.stopPropagation(); moveItem(setIdx, itemIdx, 1) }}
+                                  disabled={itemIdx === setItems.length - 1}
+                                  style={{ background: 'none', border: 'none', color: itemIdx === setItems.length - 1 ? '#1e1e3a' : '#555', cursor: itemIdx === setItems.length - 1 ? 'default' : 'pointer', fontSize: '0.7rem', lineHeight: 1, padding: '1px 3px' }}
+                                >▼</button>
+                              </div>
+                            )}
                             <button
                               onPointerDown={e => e.stopPropagation()}
                               onClick={e => { e.stopPropagation(); removeItemFromSet(setIdx, itemIdx) }}

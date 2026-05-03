@@ -1,6 +1,24 @@
 const LOOKAHEAD_MS = 100.0
 const SCHEDULE_MS  = 25.0
 
+// Singleton AudioContext — created once on first touch, kept alive between songs.
+// Mobile browsers suspend a freshly created context even inside a user gesture;
+// pre-warming it on first touchstart ensures it's running before Start Song is tapped.
+let _sharedCtx = null
+
+function getCtx() {
+  if (typeof window === 'undefined') return null
+  if (!_sharedCtx || _sharedCtx.state === 'closed') {
+    _sharedCtx = new (window.AudioContext || window.webkitAudioContext)()
+  }
+  return _sharedCtx
+}
+
+export function unlockAudio() {
+  const ctx = getCtx()
+  if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {})
+}
+
 export class AudioEngine {
   constructor({ bpm, downbeatBuffer, upbeatBuffer, onBeat }) {
     this.bpm            = bpm
@@ -20,8 +38,10 @@ export class AudioEngine {
 
   start() {
     if (this.running) return
-    this.ctx          = new (window.AudioContext || window.webkitAudioContext)()
-    this.nextBeatTime = this.ctx.currentTime + 0.05
+    this.ctx = getCtx()
+    if (!this.ctx) return
+    if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {})
+    this.nextBeatTime = this.ctx.currentTime + 0.1
     this.beatIndex    = 0
     this.running      = true
     this._schedule()
@@ -32,7 +52,7 @@ export class AudioEngine {
     clearTimeout(this.timerId)
     this.beatTimers.forEach(clearTimeout)
     this.beatTimers = []
-    if (this.ctx) { this.ctx.close(); this.ctx = null }
+    this.ctx = null  // release ref; shared context stays alive for next song
   }
 
   setMuted(muted) { this.muted = muted }
@@ -71,10 +91,10 @@ export class AudioEngine {
     osc.connect(gain)
     gain.connect(this.ctx.destination)
     osc.frequency.value = freq
-    gain.gain.setValueAtTime(0.3, time)
-    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.04)
+    gain.gain.setValueAtTime(0.7, time)
+    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.05)
     osc.start(time)
-    osc.stop(time + 0.05)
+    osc.stop(time + 0.06)
   }
 
   static async loadWav(ctx, url) {
