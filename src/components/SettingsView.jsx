@@ -17,8 +17,9 @@ function Field({ label, k, type = 'text', settings, onSettingsChange }) {
 const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B']
 
 export function SettingsView() {
-  const [settings,    setSettings]    = useState({ serialPort: '', midiPortIndex: 0, loopPadNote: 36, startSongNote: '', zoom: 1.3 })
+  const [settings,    setSettings]    = useState({ serialPort: '', midiPortIndex: 0, midiOutputPortIndex: null, loopPadNote: 36, startSongNote: '', zoom: 1.3 })
   const [midiPorts,   setMidiPorts]   = useState([])
+  const [midiOutputPorts, setMidiOutputPorts] = useState([])
   const [saved,       setSaved]       = useState(false)
   const [zoomSaved,   setZoomSaved]   = useState(false)
   const [playing,     setPlaying]     = useState(false)
@@ -34,6 +35,7 @@ export function SettingsView() {
       }
     })
     window.phr0st?.listMidiPorts().then(ports => setMidiPorts(ports ?? []))
+    window.phr0st?.listMidiOutputPorts().then(ports => setMidiOutputPorts(ports ?? []))
 
     const offNote    = window.phr0st?.onMidiNote(({ note, velocity, channel }) => {
       setNoteLog(prev => [{
@@ -51,9 +53,10 @@ export function SettingsView() {
     await window.phr0st?.saveSettings(settings)
     window.phr0st?.sendCommand('dmx:connect',  { path: settings.serialPort })
     window.phr0st?.sendCommand('midi:connect', {
-      portIndex:     settings.midiPortIndex,
-      loopPadNote:   settings.loopPadNote,
-      startSongNote: settings.startSongNote !== '' ? Number(settings.startSongNote) : null,
+      inputPortIndex:       settings.midiPortIndex,
+      outputPortIndex:      settings.midiOutputPortIndex,
+      loopPadNote:          settings.loopPadNote,
+      startSongNote:        settings.startSongNote !== '' ? Number(settings.startSongNote) : null,
     })
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
@@ -125,6 +128,29 @@ export function SettingsView() {
 
       <Field label="Loop Pad MIDI Note (default 36)" k="loopPadNote" type="number" settings={settings} onSettingsChange={setSettings} />
       <Field label="Start Song MIDI Note (leave blank to disable)" k="startSongNote" settings={settings} onSettingsChange={setSettings} />
+
+      {/* ── Maestro DMX ── */}
+      <label style={{ display: 'block', marginBottom: 14, marginTop: 20, fontSize: '0.8rem', color: '#888' }}>
+        <div style={{ fontWeight: 700, marginBottom: 8 }}>Maestro DMX Output (optional)</div>
+        MIDI Output Device
+        <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+          <select
+            value={settings.midiOutputPortIndex ?? -1}
+            onChange={e => setSettings(s => ({ ...s, midiOutputPortIndex: e.target.value === '-1' ? null : +e.target.value }))}
+            style={{ flex: 1, padding: '6px 10px', background: '#131328', border: '1px solid #2a2a3a', borderRadius: 6, color: '#e0e0f0', fontSize: '0.8rem' }}
+          >
+            <option value={-1}>— Disabled —</option>
+            {midiOutputPorts.length === 0
+              ? <option value={-1}>— No MIDI outputs found —</option>
+              : midiOutputPorts.map(p => <option key={p.index} value={p.index}>{p.name}</option>)
+            }
+          </select>
+          <button
+            onClick={() => window.phr0st?.listMidiOutputPorts().then(ports => setMidiOutputPorts(ports ?? []))}
+            style={{ padding: '6px 10px', background: '#131328', border: '1px solid #2a2a3a', borderRadius: 6, color: '#666', fontSize: '0.75rem', cursor: 'pointer' }}
+          >↺</button>
+        </div>
+      </label>
 
       <button onClick={handleSave} style={{
         padding: '8px 20px', borderRadius: 8, border: '1px solid #a855f766',

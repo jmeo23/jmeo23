@@ -81,7 +81,10 @@ function handleCommand(_, { cmd, payload }) {
         loopPadNote   = payload.loopPadNote   ?? 36
         startSongNote = payload.startSongNote ?? null
         midiEngine = createMidiEngine({ onPad: dispatchMidiNote })
-        midiEngine.connect(payload.portIndex ?? 0)
+        midiEngine.connectInput(payload.inputPortIndex ?? 0)
+        if (payload.outputPortIndex !== undefined && payload.outputPortIndex !== null) {
+          midiEngine.connectOutput(payload.outputPortIndex)
+        }
       } catch (e) { console.error('MIDI connect failed:', e.message) }
       break
     }
@@ -126,6 +129,15 @@ function handleCommand(_, { cmd, payload }) {
       midiPlayer = null
       break
     }
+    case 'maestro:sendCue': {
+      if (!midiEngine) return
+      const { cueNumber } = payload
+      if (typeof cueNumber !== 'number' || cueNumber < 1 || cueNumber > 98) return
+      // Maestro cues 1-98 map to MIDI notes 29-127
+      const note = cueNumber + 28
+      midiEngine.sendNoteOn(note, 127)
+      break
+    }
     case 'dmx:scene': {
       if (!dmxEngine || !currentSong) return
       const scene = currentSong.dmxScenes[payload.sceneName]
@@ -152,6 +164,17 @@ function setupIpc(loadAllSongs, loadAllSetlists, watchSongsFolder) {
       const ports = []
       for (let i = 0; i < input.getPortCount(); i++)
         ports.push({ index: i, name: input.getPortName(i) })
+      return ports
+    } catch { return [] }
+  })
+
+  ipcMain.handle('midi:listOutputPorts', () => {
+    if (!midiLib) return []
+    try {
+      const output = new midiLib.Output()
+      const ports = []
+      for (let i = 0; i < output.getPortCount(); i++)
+        ports.push({ index: i, name: output.getPortName(i) })
       return ports
     } catch { return [] }
   })

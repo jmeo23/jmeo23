@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('phr0st', {
   },
 
   listMidiPorts: () => ipcRenderer.invoke('midi:listPorts'),
+  listMidiOutputPorts: () => ipcRenderer.invoke('midi:listOutputPorts'),
 
   onMidiNote: (cb) => {
     const handler = (_, d) => cb(d)
