@@ -35,4 +35,11 @@ contextBridge.exposeInMainWorld('phr0st', {
   setZoomLevel: (factor) => {
     webFrame.setZoomFactor(factor)
   },
+
+  initializeZoom: async () => {
+    const settings = await ipcRenderer.invoke('settings:get')
+    if (settings?.zoom) {
+      webFrame.setZoomFactor(settings.zoom)
+    }
+  },
 })
