@@ -95,7 +95,7 @@ export function SettingsView() {
             style={{
               padding: '4px 10px', borderRadius: 4, border: '1px solid #4c3a7355',
               background: '#1a0f2e', color: zoomSaved ? '#22c55e' : '#888', fontSize: '0.7rem', cursor: 'pointer',
-              marginLeft: 'auto', transition: 'color 0.3s'
+              transition: 'color 0.3s'
             }}
           >{zoomSaved ? 'Saved ✓' : 'Save'}</button>
         </div>
