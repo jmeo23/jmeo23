@@ -18,9 +18,11 @@ export class AudioEngine {
 
   get beatInterval() { return 60 / this.bpm }
 
-  start() {
+  async start() {
     if (this.running) return
-    this.ctx          = new (window.AudioContext || window.webkitAudioContext)()
+    this.ctx = new (window.AudioContext || window.webkitAudioContext)()
+    // iOS Safari suspends AudioContext by default even inside a user gesture
+    await this.ctx.resume()
     this.nextBeatTime = this.ctx.currentTime + 0.05
     this.beatIndex    = 0
     this.running      = true
