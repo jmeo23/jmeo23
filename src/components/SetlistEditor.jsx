@@ -275,6 +275,22 @@ export function SetlistEditor({ songs = [], breaks = [], onLoadGig, onDirtyChang
         )}
       </div>
 
+      {/* ── Mobile set selector bar ── */}
+      {isMobile && activeGig && (
+        <div style={{ background: '#0f0f1e', borderBottom: '1px solid #1a1a2e', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, flexWrap: 'wrap' }}>
+          <span style={{ fontFamily: VCR, fontSize: '0.52rem', color: '#555', textTransform: 'uppercase', letterSpacing: '0.1em', marginRight: 2 }}>Adding to:</span>
+          {activeGig.sets.map((s, i) => (
+            <button key={s.id} onClick={() => setMobileTargetSet(i)} style={{
+              padding: '5px 14px', borderRadius: 6,
+              border: `1px solid ${mobileTargetSet === i ? '#a855f755' : '#1e1e3a'}`,
+              background: mobileTargetSet === i ? '#a855f720' : 'transparent',
+              color: mobileTargetSet === i ? '#a855f7' : '#555',
+              fontSize: '0.7rem', cursor: 'pointer', fontFamily: 'inherit', fontWeight: mobileTargetSet === i ? 700 : 400,
+            }}>{s.name}</button>
+          ))}
+        </div>
+      )}
+
       {/* ── Body ── */}
       {!activeGig ? (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
@@ -288,18 +304,6 @@ export function SetlistEditor({ songs = [], breaks = [], onLoadGig, onDirtyChang
           <div style={{ width: 210, borderRight: '1px solid #1a1a2e', display: 'flex', flexDirection: 'column', background: '#0b0b18', flexShrink: 0 }}>
             <div style={{ padding: '8px 10px', borderBottom: '1px solid #12121f' }}>
               <div style={{ marginBottom: 6 }}><span style={LABEL}>Library</span></div>
-              {isMobile && activeGig && activeGig.sets.length > 1 && (
-                <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
-                  {activeGig.sets.map((s, i) => (
-                    <button key={s.id} onClick={() => setMobileTargetSet(i)} style={{
-                      padding: '3px 9px', borderRadius: 5, border: 'none',
-                      background: mobileTargetSet === i ? '#a855f720' : 'transparent',
-                      color: mobileTargetSet === i ? '#a855f7' : '#555',
-                      fontSize: '0.6rem', cursor: 'pointer', fontFamily: 'inherit',
-                    }}>{s.name}</button>
-                  ))}
-                </div>
-              )}
               <input
                 value={query}
                 onChange={e => setQuery(e.target.value)}
