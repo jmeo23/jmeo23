@@ -77,7 +77,7 @@ export default function App() {
 
         {/* Mobile top bar */}
         <div style={{ background: '#13132a', padding: '10px 14px 8px', display: 'flex', alignItems: 'center', gap: 10, borderBottom: '2px solid #1e1e3a', flexShrink: 0 }}>
-          <span style={{ fontFamily: "'Pix32', monospace", color: '#a855f7', fontSize: '1rem', letterSpacing: '0.04em', textShadow: '0 0 18px #a855f766', userSelect: 'none' }}>phr0stOS</span>
+          <span onClick={() => setView('Perform')} style={{ fontFamily: "'Pix32', monospace", color: '#a855f7', fontSize: '1rem', letterSpacing: '0.04em', textShadow: '0 0 18px #a855f766', userSelect: 'none', cursor: 'pointer' }}>phr0stOS</span>
           <span style={{ width: 1, height: 14, background: '#2a2a3a' }} />
           <span style={{ color: '#c0c0d8', fontWeight: 700, fontSize: '0.9rem', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {activeItem?.title ?? activeItem?.name}
@@ -198,7 +198,7 @@ export default function App() {
         }}>
           {smState === 'idle' ? 't' : '♪'}
         </span>
-        <span style={{ fontFamily: "'Pix32', monospace", color: '#a855f7', fontSize: '1.1rem', letterSpacing: '0.04em', textShadow: '0 0 18px #a855f766', userSelect: 'none' }}>phr0stOS</span>
+        <span onClick={() => setView('Perform')} style={{ fontFamily: "'Pix32', monospace", color: '#a855f7', fontSize: '1.1rem', letterSpacing: '0.04em', textShadow: '0 0 18px #a855f766', userSelect: 'none', cursor: 'pointer' }}>phr0stOS</span>
         <span style={{ width: 1, height: 16, background: '#2a2a3a' }} />
         <span style={{ color: '#c0c0d8', fontWeight: 700, fontSize: '0.85rem' }}>{activeItem?.title ?? activeItem?.name}</span>
         {activeItem?.type !== 'break' && <>
