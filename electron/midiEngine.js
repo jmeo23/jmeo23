@@ -2,9 +2,11 @@ const midi = require('midi')
 
 function createMidiEngine({ onPad }) {
   const input = new midi.Input()
-  let portIndex = -1
+  const output = new midi.Output()
+  let inputPortIndex = -1
+  let outputPortIndex = -1
 
-  function listPorts() {
+  function listInputPorts() {
     const ports = []
     for (let i = 0; i < input.getPortCount(); i++) {
       ports.push({ index: i, name: input.getPortName(i) })
@@ -12,9 +14,17 @@ function createMidiEngine({ onPad }) {
     return ports
   }
 
-  function connect(index) {
-    if (portIndex !== -1) input.closePort()
-    portIndex = index
+  function listOutputPorts() {
+    const ports = []
+    for (let i = 0; i < output.getPortCount(); i++) {
+      ports.push({ index: i, name: output.getPortName(i) })
+    }
+    return ports
+  }
+
+  function connectInput(index) {
+    if (inputPortIndex !== -1) input.closePort()
+    inputPortIndex = index
     input.openPort(index)
     input.on('message', (_, msg) => {
       const [status, note, velocity] = msg
@@ -23,11 +33,46 @@ function createMidiEngine({ onPad }) {
     })
   }
 
-  function disconnect() {
-    if (portIndex !== -1) { input.closePort(); portIndex = -1 }
+  function connectOutput(index) {
+    if (outputPortIndex !== -1) output.closePort()
+    outputPortIndex = index
+    output.openPort(index)
   }
 
-  return { listPorts, connect, disconnect }
+  function sendNoteOn(note, velocity = 127, channel = 0) {
+    if (outputPortIndex === -1) return
+    output.sendMessage([0x90 + channel, note, velocity])
+  }
+
+  function sendNoteOff(note, channel = 0) {
+    if (outputPortIndex === -1) return
+    output.sendMessage([0x80 + channel, note, 0])
+  }
+
+  function disconnectInput() {
+    if (inputPortIndex !== -1) { input.closePort(); inputPortIndex = -1 }
+  }
+
+  function disconnectOutput() {
+    if (outputPortIndex !== -1) { output.closePort(); outputPortIndex = -1 }
+  }
+
+  function disconnect() {
+    disconnectInput()
+    disconnectOutput()
+  }
+
+  return {
+    listInputPorts,
+    listOutputPorts,
+    connectInput,
+    connectOutput,
+    sendNoteOn,
+    sendNoteOff,
+    disconnectInput,
+    disconnectOutput,
+    disconnect,
+  }
 }
 
 module.exports = { createMidiEngine }

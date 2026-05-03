@@ -19,6 +19,7 @@ export default function App() {
   const [setsDirty,     setSetsDirty]     = useState(false)
 
   useEffect(() => {
+    window.phr0st?.initializeZoom()
     window.phr0st?.getSongs().then(s  => { if (s?.length) setSongs(s) })
     window.phr0st?.onSongsUpdated(s   => setSongs(s))
     window.phr0st?.onStateUpdate(data => {

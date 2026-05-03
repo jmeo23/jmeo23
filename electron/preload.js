@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron')
+const { contextBridge, ipcRenderer, webFrame } = require('electron')
 
 contextBridge.exposeInMainWorld('phr0st', {
   getSongs:     () => ipcRenderer.invoke('songs:getAll'),
@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('phr0st', {
   },
 
   listMidiPorts: () => ipcRenderer.invoke('midi:listPorts'),
+  listMidiOutputPorts: () => ipcRenderer.invoke('midi:listOutputPorts'),
 
   onMidiNote: (cb) => {
     const handler = (_, d) => cb(d)
@@ -31,4 +32,15 @@ contextBridge.exposeInMainWorld('phr0st', {
   },
 
   sendCommand: (cmd, payload) => ipcRenderer.send('command', { cmd, payload }),
+
+  setZoomLevel: (factor) => {
+    webFrame.setZoomFactor(factor)
+  },
+
+  initializeZoom: async () => {
+    const settings = await ipcRenderer.invoke('settings:get')
+    if (settings?.zoom) {
+      webFrame.setZoomFactor(settings.zoom)
+    }
+  },
 })
