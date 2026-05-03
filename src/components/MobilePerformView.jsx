@@ -21,6 +21,53 @@ export function MobilePerformView({ song, onStateChange, nextSong, onAutoAdvance
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', background: '#0d0d14' }}>
 
+      {/* Controls bar */}
+      <div style={{
+        background: '#13132a', borderBottom: '2px solid #1e1e3a',
+        padding: '10px 10px 10px', display: 'flex', gap: 8, alignItems: 'center',
+        flexShrink: 0,
+      }}>
+        <button
+          onClick={toggleClick}
+          style={{
+            width: 56, height: 56, borderRadius: 14, flexShrink: 0, cursor: 'pointer',
+            border: `1px solid ${clickOn ? '#a855f744' : '#2a2a3a'}`,
+            background: 'transparent',
+            color: clickOn ? '#a855f7' : '#555',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1,
+          }}
+        >
+          <span style={{ fontSize: '1rem' }}>♩</span>
+          <span style={{ fontSize: '0.6rem', fontFamily: 'monospace' }}>CLK</span>
+        </button>
+
+        <button
+          onClick={smState === 'idle' ? startSong : stopSong}
+          style={{
+            flex: 2, padding: '17px 0', borderRadius: 16, fontWeight: 700, fontSize: '0.95rem',
+            border: `1px solid ${smState === 'idle' ? '#22c55e66' : '#ef444466'}`,
+            background: smState === 'idle' ? '#0a1a10' : '#1a0808',
+            color: smState === 'idle' ? '#22c55e' : '#ef4444',
+            boxShadow: smState === 'idle' ? '0 0 12px #22c55e22' : 'none',
+            cursor: 'pointer',
+          }}
+        >
+          {smState === 'idle' ? '▶ Start Song' : '■ Stop'}
+        </button>
+
+        <button
+          onClick={() => { if (isLooping) toggleLoop(activeSection) }}
+          style={{
+            width: 56, height: 56, borderRadius: 14, flexShrink: 0,
+            border: `1px solid ${isLooping ? '#a855f766' : '#1e1e3a'}`,
+            background: isLooping ? '#1a0a2a' : 'transparent',
+            color: isLooping ? '#a855f7' : '#2a2a4a',
+            fontSize: '1.3rem', cursor: isLooping ? 'pointer' : 'default',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >↻</button>
+      </div>
+
       {/* Scrollable sections */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 8px 4px', display: 'flex', flexDirection: 'column', gap: 7 }}>
 
@@ -107,53 +154,6 @@ export function MobilePerformView({ song, onStateChange, nextSong, onAutoAdvance
           {dmxOpen && <div style={{ marginTop: 6 }}><DmxPanel scene={currentScene} sceneName={sceneName} /></div>}
         </div>
 
-      </div>
-
-      {/* Fixed bottom bar */}
-      <div style={{
-        background: '#13132a', borderTop: '2px solid #1e1e3a',
-        padding: '10px 10px 14px', display: 'flex', gap: 8, alignItems: 'center',
-        flexShrink: 0,
-      }}>
-        <button
-          onClick={toggleClick}
-          style={{
-            width: 56, height: 56, borderRadius: 14, flexShrink: 0, cursor: 'pointer',
-            border: `1px solid ${clickOn ? '#a855f744' : '#2a2a3a'}`,
-            background: 'transparent',
-            color: clickOn ? '#a855f7' : '#555',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1,
-          }}
-        >
-          <span style={{ fontSize: '1rem' }}>♩</span>
-          <span style={{ fontSize: '0.6rem', fontFamily: 'monospace' }}>CLK</span>
-        </button>
-
-        <button
-          onClick={smState === 'idle' ? startSong : stopSong}
-          style={{
-            flex: 2, padding: '17px 0', borderRadius: 16, fontWeight: 700, fontSize: '0.95rem',
-            border: `1px solid ${smState === 'idle' ? '#22c55e66' : '#ef444466'}`,
-            background: smState === 'idle' ? '#0a1a10' : '#1a0808',
-            color: smState === 'idle' ? '#22c55e' : '#ef4444',
-            boxShadow: smState === 'idle' ? '0 0 12px #22c55e22' : 'none',
-            cursor: 'pointer',
-          }}
-        >
-          {smState === 'idle' ? '▶ Start Song' : '■ Stop'}
-        </button>
-
-        <button
-          onClick={() => { if (isLooping) toggleLoop(activeSection) }}
-          style={{
-            width: 56, height: 56, borderRadius: 14, flexShrink: 0,
-            border: `1px solid ${isLooping ? '#a855f766' : '#1e1e3a'}`,
-            background: isLooping ? '#1a0a2a' : 'transparent',
-            color: isLooping ? '#a855f7' : '#2a2a4a',
-            fontSize: '1.3rem', cursor: isLooping ? 'pointer' : 'default',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
-        >↻</button>
       </div>
 
       <CountdownOverlay
