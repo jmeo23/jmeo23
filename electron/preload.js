@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron')
+const { contextBridge, ipcRenderer, webFrame } = require('electron')
 
 contextBridge.exposeInMainWorld('phr0st', {
   getSongs:     () => ipcRenderer.invoke('songs:getAll'),
@@ -31,4 +31,8 @@ contextBridge.exposeInMainWorld('phr0st', {
   },
 
   sendCommand: (cmd, payload) => ipcRenderer.send('command', { cmd, payload }),
+
+  setZoomLevel: (factor) => {
+    webFrame.setZoomFactor(factor)
+  },
 })

@@ -17,7 +17,7 @@ function Field({ label, k, type = 'text', settings, onSettingsChange }) {
 const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B']
 
 export function SettingsView() {
-  const [settings,    setSettings]    = useState({ serialPort: '', midiPortIndex: 0, loopPadNote: 36, startSongNote: '' })
+  const [settings,    setSettings]    = useState({ serialPort: '', midiPortIndex: 0, loopPadNote: 36, startSongNote: '', zoom: 1.3 })
   const [midiPorts,   setMidiPorts]   = useState([])
   const [saved,       setSaved]       = useState(false)
   const [playing,     setPlaying]     = useState(false)
@@ -26,7 +26,12 @@ export function SettingsView() {
   const logRef = useRef(null)
 
   useEffect(() => {
-    window.phr0st?.getSettings().then(s => s && setSettings(prev => ({ ...prev, ...s })))
+    window.phr0st?.getSettings().then(s => {
+      if (s) {
+        setSettings(prev => ({ ...prev, ...s }))
+        if (s.zoom) window.phr0st?.setZoomLevel(s.zoom)
+      }
+    })
     window.phr0st?.listMidiPorts().then(ports => setMidiPorts(ports ?? []))
 
     const offNote    = window.phr0st?.onMidiNote(({ note, velocity, channel }) => {
@@ -56,6 +61,30 @@ export function SettingsView() {
   return (
     <div style={{ padding: 20, color: '#e0e0f0', maxWidth: 420 }}>
       <div style={{ fontWeight: 700, marginBottom: 20, fontSize: '1rem' }}>Settings</div>
+
+      {/* Zoom Control */}
+      <label style={{ display: 'block', marginBottom: 14, fontSize: '0.8rem', color: '#888' }}>
+        UI Scale
+        <div style={{ display: 'flex', gap: 10, marginTop: 8, alignItems: 'center' }}>
+          <button
+            onClick={() => {
+              const newZoom = Math.max(0.8, settings.zoom - 0.1)
+              setSettings(s => ({ ...s, zoom: newZoom }))
+              window.phr0st?.setZoomLevel(newZoom)
+            }}
+            style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #2a2a3a', background: '#131328', color: '#666', fontSize: '0.7rem', cursor: 'pointer' }}
+          >−</button>
+          <span style={{ fontSize: '0.75rem', color: '#666', minWidth: 50, textAlign: 'center' }}>{Math.round(settings.zoom * 100)}%</span>
+          <button
+            onClick={() => {
+              const newZoom = Math.min(2, settings.zoom + 0.1)
+              setSettings(s => ({ ...s, zoom: newZoom }))
+              window.phr0st?.setZoomLevel(newZoom)
+            }}
+            style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #2a2a3a', background: '#131328', color: '#666', fontSize: '0.7rem', cursor: 'pointer' }}
+          >+</button>
+        </div>
+      </label>
 
       <Field label="Serial Port (DMX — e.g. COM3 or /dev/ttyUSB0)" k="serialPort" settings={settings} onSettingsChange={setSettings} />
 
