@@ -20,6 +20,7 @@ export function SettingsView() {
   const [settings,    setSettings]    = useState({ serialPort: '', midiPortIndex: 0, loopPadNote: 36, startSongNote: '', zoom: 1.3 })
   const [midiPorts,   setMidiPorts]   = useState([])
   const [saved,       setSaved]       = useState(false)
+  const [zoomSaved,   setZoomSaved]   = useState(false)
   const [playing,     setPlaying]     = useState(false)
   const [noteLog,     setNoteLog]     = useState([])
   const [testFile,    setTestFile]    = useState('test-note36.mid')
@@ -58,6 +59,12 @@ export function SettingsView() {
     setTimeout(() => setSaved(false), 2000)
   }
 
+  async function handleSaveZoom() {
+    await window.phr0st?.saveSettings(settings)
+    setZoomSaved(true)
+    setTimeout(() => setZoomSaved(false), 1500)
+  }
+
   return (
     <div style={{ padding: 20, color: '#e0e0f0', maxWidth: 420 }}>
       <div style={{ fontWeight: 700, marginBottom: 20, fontSize: '1rem' }}>Settings</div>
@@ -83,6 +90,14 @@ export function SettingsView() {
             }}
             style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #2a2a3a', background: '#131328', color: '#666', fontSize: '0.7rem', cursor: 'pointer' }}
           >+</button>
+          <button
+            onClick={handleSaveZoom}
+            style={{
+              padding: '4px 10px', borderRadius: 4, border: '1px solid #4c3a7355',
+              background: '#1a0f2e', color: zoomSaved ? '#22c55e' : '#888', fontSize: '0.7rem', cursor: 'pointer',
+              marginLeft: 'auto', transition: 'color 0.3s'
+            }}
+          >{zoomSaved ? 'Saved ✓' : 'Save'}</button>
         </div>
       </label>
 
